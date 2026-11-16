@@ -1424,9 +1424,10 @@ async function varrerStorageOrfaosRest(supaUrl: string, serviceKey: string): Pro
       if (!users.length) break;
       for (const u of users) {
         const meta = (u.user_metadata || {}) as Record<string, unknown>;
+        const mA = (u.app_metadata || {}) as Record<string, unknown>;
         const m = String(meta.avatar_url || '').match(/fotos_perfil\/(.+?)(?:\?|$)/);
         if (m) { try { refsAv.add(decodeURIComponent(m[1])); } catch { refsAv.add(m[1]); } }
-        [meta.bi, meta.agent, meta.instituicao].forEach(v => { const k = normChaveElim(v); if (k) chavesAuth.add(k); });
+        [meta.bi, meta.agent, meta.instituicao, mA.bi, mA.agent, mA.instituicao].forEach(v => { const k = normChaveElim(v); if (k) chavesAuth.add(k); });
       }
     }
     const pr = await fetch(`${supaUrl}/rest/v1/profiles?select=bi&limit=3000`, { headers: HSo });
@@ -1615,6 +1616,136 @@ const inqIaChamarModelo = async (sistema: string, utilizador: string, maxTokens:
   }
   return null;
 };
+
+// ----------------------------------------------------------------------------
+// 2026-11-16 — IDENTIDADE NO TOPO DO MÓDULO: /api/security/readiness e
+// /api/kb-upload (e agora upload/url-assinada) resolvem a identidade DENTRO de
+// handler(), avaliado antes das declarações `const` mais abaixo; usá-las ali
+// lançava "Cannot access 'dadosIdentCache' before initialization" e o catch
+// mascarava-o como «sem autorização» (o admin legítimo via 403; o upload, 500).
+// Declarações de módulo usadas por handler() ficam, por isso, junto das
+// dependências do topo.
+// ----------------------------------------------------------------------------
+
+// Contas demo canónicas (não provisionáveis por utilizadores reais).
+const DADOS_DEMO_BIS = ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP'];
+
+interface DadosIdentidade {
+  bi: string; email: string; role: string;
+  isAdmin: boolean; isInst: boolean; instCode: string; demo: boolean;
+}
+
+// Resolve a identidade a partir do token de sessão Supabase.
+// 2026-08-21 (desempenho) — cache em memória de 60s por token: evita o
+// round-trip /auth/v1/user em CADA pedido do proxy.
+const dadosIdentCache = new Map<string, { ts: number; val: DadosIdentidade | { erro: string } }>();
+
+// Provisionamento de identidade na APROVAÇÃO (2026-11-16, v39/v41): depois de
+// a v39 deixar de promover claims do registo, a única via legítima para uma
+// conta nova receber identidade é a decisão administrativa. Ao aprovar um
+// registo de cidadão, a conta Auth sintética (bi.<bi>@cidadao.…) passa a ter
+// bi + role='cidadao' em app_metadata — o que o titular não consegue forjar.
+async function provisionarIdentidadeCidadao(
+  supaUrl: string, serviceKey: string, biNumero: string,
+): Promise<{ ok: boolean; conta?: string; detalhe?: string }> {
+  const bi = String(biNumero || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!bi) return { ok: false, detalhe: 'BI vazio' };
+  const h = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+  try {
+    for (let pagina = 1; pagina <= 10; pagina++) {
+      const lr = await fetch(`${supaUrl}/auth/v1/admin/users?per_page=200&page=${pagina}`, { headers: h });
+      if (!lr.ok) return { ok: false, detalhe: `listUsers ${lr.status}` };
+      const lista = await lr.json().catch(() => null);
+      const users: any[] = lista?.users || [];
+      if (!users.length) break;
+      const conta = users.find((u) => {
+        const email = String(u?.email || '').toLowerCase();
+        const metaBi = String(u?.app_metadata?.bi || '').trim().toUpperCase();
+        return metaBi === bi || email === `bi.${bi.toLowerCase()}@cidadao.correiodigital.ao`;
+      });
+      if (conta) {
+        const dr = await fetch(`${supaUrl}/auth/v1/admin/users/${conta.id}`, {
+          method: 'PUT', headers: h,
+          body: JSON.stringify({ app_metadata: { ...(conta.app_metadata || {}), bi, role: 'cidadao' } }),
+        });
+        return dr.ok ? { ok: true, conta: conta.id } : { ok: false, detalhe: `update ${dr.status}` };
+      }
+    }
+    return { ok: true, conta: undefined, detalhe: 'sem conta Auth (registo anterior ao registo na nuvem)' };
+  } catch (e) {
+    return { ok: false, detalhe: String((e as Error)?.message || e).slice(0, 120) };
+  }
+}
+
+async function dadosResolverIdentidade(supaUrl: string, serviceKey: string, token: string): Promise<DadosIdentidade | { erro: string }> {
+  const cacheKey = `${supaUrl}|${token}`;
+  const hit = dadosIdentCache.get(cacheKey);
+  if (hit && Date.now() - hit.ts < 60_000) return hit.val;
+  const val = await dadosResolverIdentidadeRaw(supaUrl, serviceKey, token);
+  dadosIdentCache.set(cacheKey, { ts: Date.now(), val });
+  return val;
+}
+async function dadosResolverIdentidadeRaw(supaUrl: string, serviceKey: string, token: string): Promise<DadosIdentidade | { erro: string }> {
+  try {
+    const r = await fetch(`${supaUrl}/auth/v1/user`, {
+      headers: { apikey: serviceKey, Authorization: `Bearer ${token}` },
+    });
+    if (!r.ok) return { erro: 'Sessão inválida ou expirada. Inicie sessão novamente.' };
+    const u = await r.json();
+    // Claims de autorização só podem vir de fonte atribuída pelo servidor.
+    // NÃO PUBLICAR isoladamente: o trigger e o provisionamento de contas
+    // também têm de ser migrados/validados, incluindo contas existentes.
+    const meta = (u.app_metadata && typeof u.app_metadata === 'object') ? u.app_metadata : {};
+    const claim = (value: unknown) => typeof value === 'string' ? value.trim().toUpperCase() : '';
+    const role = typeof meta.role === 'string' ? meta.role.trim().toLowerCase() : '';
+    if (!['admin', 'instituicao', 'cidadao'].includes(role)) {
+      return { erro: 'Identidade ainda não provisionada. Contacte a Administração.' };
+    }
+    const instCode = role === 'instituicao' ? claim(meta.instituicao) : '';
+    const bi = claim(meta.bi) || (role === 'instituicao' ? instCode : role === 'admin' ? claim(meta.agent) : '');
+    // Nunca permitir que um escopo vazio seja convertido numa consulta global.
+    if (!bi || (role === 'instituicao' && !instCode)) {
+      return { erro: 'Identidade incompleta. Contacte a Administração.' };
+    }
+    return {
+      bi, email: typeof u.email === 'string' ? u.email : '', role,
+      isAdmin: role === 'admin',
+      isInst: role === 'instituicao',
+      instCode,
+      demo: DADOS_DEMO_BIS.includes(bi),
+    };
+  } catch {
+    return { erro: 'Serviço de identidade indisponível. Tente novamente.' };
+  }
+}
+
+// Autorização de objectos de Storage (2026-11-16): o servidor assina/escreve
+// com a service role, por isso o token da sessão TEM de provar que o objecto
+// pertence à identidade — senão qualquer visitante leria/escrevia ficheiros
+// alheios (fotos de B.I., anexos de correspondência, KB de outra instituição).
+// Regras: admin → tudo; instituição → kb/<SIGLA>/…, <SIGLA>/… e fotos com o
+// próprio código; cidadão → <BI>/… e fotos com o próprio BI no nome.
+function storageCaminhoPermitido(ident: DadosIdentidade, bucket: string, caminho: string): boolean {
+  if (ident.isAdmin) return true;
+  const p = String(caminho || '').replace(/^\/+/, '');
+  if (!p || p.includes('..')) return false;
+  const segs = p.split('/').filter(Boolean);
+  if (!segs.length) return false;
+  const chaves = new Set<string>(
+    [ident.bi, ident.instCode].map((v) => String(v || '').trim().toUpperCase()).filter(Boolean),
+  );
+  const primeiro = segs[0].toUpperCase();
+  if (bucket === 'kb_ficheiros') {
+    const sigla = (primeiro === 'KB' ? segs[1] || '' : segs[0]).toUpperCase();
+    return ident.isInst && !!ident.instCode && sigla === ident.instCode;
+  }
+  if (bucket === 'fotos_perfil') {
+    const ficheiro = segs[segs.length - 1].toUpperCase();
+    return [...chaves].some((k) => ficheiro.startsWith(k));
+  }
+  // documentos_registo / correspondencias_anexos — pasta = chave do titular
+  return chaves.has(primeiro);
+}
 
 export default async function handler(req: any, res: any) {
   const { method, url } = req;
@@ -3178,18 +3309,27 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
     // (nunca exposta no cliente): o browser envia o ficheiro em base64.
     if (url.includes('/api/kb-upload') && method === 'POST') {
       try {
-        const { nome, base64, sigla, tipo } = body || {};
+        const supaUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+        if (!supaUrl || !serviceKey) return res.status(500).json({ ok: false, erro: 'Serviço de armazenamento não configurado.' });
+        // 2026-11-16 — exige sessão e papel institucional: a pasta do ficheiro
+        // é derivada da identidade confirmada, nunca do corpo do pedido.
+        const tokenKb = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+        if (!tokenKb) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+        const identKb = await dadosResolverIdentidade(supaUrl, serviceKey, tokenKb);
+        if ('erro' in identKb) return res.status(401).json({ ok: false, erro: identKb.erro });
+        if (!identKb.isAdmin && !identKb.isInst) return res.status(403).json({ ok: false, erro: 'Apenas a instituição (ou a Administração) publica na Base de Conhecimento.' });
+        const { nome, base64, sigla: siglaCliente, tipo } = body || {};
+        const sigla = identKb.isAdmin ? siglaCliente : identKb.instCode;
         if (!nome || typeof nome !== 'string' || !base64 || typeof base64 !== 'string') {
           return res.status(400).json({ ok: false, erro: 'nome e base64 são obrigatórios.' });
         }
         const buf = Buffer.from(base64, 'base64');
         if (buf.length === 0) return res.status(400).json({ ok: false, erro: 'Ficheiro vazio.' });
         if (buf.length > 4 * 1024 * 1024) return res.status(413).json({ ok: false, erro: 'Ficheiro demasiado grande para este caminho (máx. 4 MB) — o upload directo browser→Storage cobre ficheiros maiores.' });
-        const supaUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
-        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
-        if (!supaUrl || !serviceKey) return res.status(500).json({ ok: false, erro: 'Serviço de armazenamento não configurado.' });
         const sanitizado = nome.replace(/[^\w.\-]+/g, '_');
-        const pasta = (sigla || 'inst').replace(/[^\w\-]+/g, '_').toUpperCase();
+        const pasta = String(sigla || '').replace(/[^\w\-]+/g, '_').toUpperCase();
+        if (!pasta) return res.status(403).json({ ok: false, erro: 'Sem código institucional para o ficheiro.' });
         const filePath = `kb/${pasta}/${Date.now()}-${sanitizado}`;
         // Upload via API de storage (multipart) — service role ignora RLS
         const form = new FormData();
@@ -3233,7 +3373,7 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         // o Perfil de um COLABORADOR nunca pode gravar na linha `profiles` da
         // instituição (essa pertence ao responsável). Com `agente` presente,
         // confirma-se que o utilizador do TOKEN é o próprio membro e
-        // actualizam-se apenas os user_metadata da conta Auth DELE.
+        // actualizam-se apenas os app_metadata da conta Auth DELE.
         const agenteNorm = String(agente || '').trim().toUpperCase();
         if (agenteNorm) {
           const authHdr = String(req.headers.authorization || (req.headers as any).Authorization || '');
@@ -3245,7 +3385,7 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
           if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
           const sess = await sessResp.json().catch(() => null);
           const user = sess && (sess.user || sess);
-          const meta = (user && user.user_metadata) || {};
+          const meta = (user && user.app_metadata) || {};
           const metaAgent = String(meta.agent || '').trim().toUpperCase();
           if (metaAgent !== agenteNorm) {
             return res.status(403).json({ ok: false, erro: 'O Nº Agente não corresponde à sessão autenticada.' });
@@ -3263,7 +3403,7 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
               Authorization: `Bearer ${serviceKeyPerfil}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ user_metadata: { ...meta, ...patch } }),
+            body: JSON.stringify({ app_metadata: { ...meta, ...patch } }),
           });
           if (!updResp.ok) {
             const txt = await updResp.text();
@@ -3389,7 +3529,7 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
         const sess = await sessResp.json().catch(() => null);
         const userSess = sess && (sess.user || sess);
-        const roleCaller = String(((userSess && userSess.user_metadata) || {}).role || '').toLowerCase();
+        const roleCaller = String(((userSess && userSess.app_metadata) || {}).role || '').toLowerCase();
         if (roleCaller !== 'admin') return res.status(403).json({ ok: false, erro: 'Apenas a Administração elimina adesões institucionais.' });
 
         const chaves = new Set<string>([codeNorm, `${codeNorm}-01`]);
@@ -3517,7 +3657,7 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
         const sess = await sessResp.json().catch(() => null);
         const user = sess && (sess.user || sess);
-        const meta = (user && user.user_metadata) || {};
+        const meta = (user && user.app_metadata) || {};
         const roleCaller = String(meta.role || '').toLowerCase();
         const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
         const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
@@ -3617,7 +3757,7 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
         const sess = await sessResp.json().catch(() => null);
         const user = sess && (sess.user || sess);
-        const meta = (user && user.user_metadata) || {};
+        const meta = (user && user.app_metadata) || {};
         const roleCaller = String(meta.role || '').toLowerCase();
         const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
         const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
@@ -3684,7 +3824,7 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
     }
 
     // PERMISSÕES DE PÁGINA DO AGENTE (2026-08-22) — espelho de server.ts:
-    // fonte canónica = user_metadata no Auth; ler devolve o que está NA NUVEM;
+    // fonte canónica = app_metadata no Auth (só editável pelo service role);
     // gravar só é aceite do responsável da área (instituição '-01' / Alfa
     // ADMIN-0001); whitelist por área.
     if (url.includes('/api/agente-permissoes') && method === 'POST') {
@@ -3699,7 +3839,7 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
         const sess = await sessResp.json().catch(() => null);
         const user = sess && (sess.user || sess);
-        const meta = (user && user.user_metadata) || {};
+        const meta = (user && user.app_metadata) || {};
         const roleCaller = String(meta.role || '').toLowerCase();
         const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
         const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
@@ -3753,14 +3893,14 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
             const achado = users.find((u: any) => String(u.email || '').toLowerCase() === emailAlvo);
             if (achado) {
               alvoId = achado.id;
-              alvoMeta = (achado.user_metadata || {}) as Record<string, unknown>;
+              alvoMeta = (achado.app_metadata || {}) as Record<string, unknown>;
             }
           }
           if (!alvoId) return res.status(404).json({ ok: false, erro: 'Conta do agente não encontrada na nuvem (a gravação local mantém-se).' });
           const updResp = await fetch(`${supaUrlPerfil}/auth/v1/admin/users/${alvoId}`, {
             method: 'PUT',
             headers: { ...h, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_metadata: { ...(alvoMeta || {}), paginasPermitidas: validas } }),
+            body: JSON.stringify({ app_metadata: { ...(alvoMeta || {}), paginasPermitidas: validas } }),
           });
           if (!updResp.ok) {
             const txt = await updResp.text();
@@ -3793,7 +3933,7 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
         const sess = await sessResp.json().catch(() => null);
         const user = sess && (sess.user || sess);
-        const meta = (user && user.user_metadata) || {};
+        const meta = (user && user.app_metadata) || {};
         const roleCaller = String(meta.role || '').toLowerCase();
         const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
         const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
@@ -3804,7 +3944,7 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
         // ---- LISTAR: equipa da própria área (base central) ----
         if (acao === 'listar') {
           // 2026-11-13 — inclui as páginas concedidas a cada membro (fonte:
-          // user_metadata do Auth, a mesma do login) para o popup «Editar
+          // app_metadata do Auth, a mesma do login) para o popup «Editar
           // Membro da Equipa» abrir com a pré-seleção REAL do colaborador.
           // null = sem lista gravada (sem restrições / legado).
           const mapaPaginasAuth = async (dominio: string, whitelist: string[]): Promise<Map<string, string[]>> => {
@@ -3817,7 +3957,7 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
               if (!users.length) break;
               users.forEach((uu) => {
                 const em = String((uu && uu.email) || '').toLowerCase();
-                const meta = (uu && uu.user_metadata) || {};
+                const meta = (uu && uu.app_metadata) || {};
                 if (!em.startsWith('agente.') || !em.endsWith(`@${dominio}`) || !Array.isArray(meta.paginasPermitidas)) return;
                 mapa.set(em, meta.paginasPermitidas.map((x: unknown) => String(x).trim()).filter(Boolean).filter((p: string) => whitelist.includes(p)));
               });
@@ -3953,7 +4093,6 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
 // único permitido sem token (é o passo público de registo).
 // ============================================================================
 
-const DADOS_DEMO_BIS = ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP'];
 
 // Colunas permitidas por tabela (escrita); leitura devolve a linha completa.
 const DADOS_COLUNAS: Record<string, Record<string, boolean>> = {
@@ -4010,11 +4149,6 @@ const DADOS_COLUNAS: Record<string, Record<string, boolean>> = {
     institution_code: true, citizen_bi: true,
   },
 };
-
-interface DadosIdentidade {
-  bi: string; email: string; role: string;
-  isAdmin: boolean; isInst: boolean; instCode: string; demo: boolean;
-}
 
 type EscopoFiltros = { or: string[]; and: Record<string, string> } | null;
 
@@ -4182,55 +4316,6 @@ const DADOS_TABELAS: Record<string, {
     injetar: (_i, d) => d,
   },
 };
-
-// Resolve a identidade a partir do token de sessão Supabase.
-// 2026-08-21 (desempenho) — cache em memória de 60s por token: evita o
-// round-trip /auth/v1/user em CADA pedido do proxy.
-const dadosIdentCache = new Map<string, { ts: number; val: DadosIdentidade | { erro: string } }>();
-async function dadosResolverIdentidade(supaUrl: string, serviceKey: string, token: string): Promise<DadosIdentidade | { erro: string }> {
-  const cacheKey = `${supaUrl}|${token}`;
-  const hit = dadosIdentCache.get(cacheKey);
-  if (hit && Date.now() - hit.ts < 60_000) return hit.val;
-  const val = await dadosResolverIdentidadeRaw(supaUrl, serviceKey, token);
-  dadosIdentCache.set(cacheKey, { ts: Date.now(), val });
-  return val;
-}
-async function dadosResolverIdentidadeRaw(supaUrl: string, serviceKey: string, token: string): Promise<DadosIdentidade | { erro: string }> {
-  try {
-    const r = await fetch(`${supaUrl}/auth/v1/user`, {
-      headers: { apikey: serviceKey, Authorization: `Bearer ${token}` },
-    });
-    if (!r.ok) return { erro: 'Sessão inválida ou expirada. Inicie sessão novamente.' };
-    const u = await r.json();
-    const meta: any = { ...(u.app_metadata || {}), ...(u.user_metadata || {}) };
-    let bi = String(meta.bi || '').trim().toUpperCase();
-    if (!bi && u.email) {
-      try {
-        const pr = await fetch(`${supaUrl}/rest/v1/profiles?email=eq.${encodeURIComponent(u.email)}&select=bi&limit=1`, {
-          headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
-        });
-        const rows = await pr.json().catch(() => []);
-        bi = (rows && rows[0] && rows[0].bi) ? String(rows[0].bi).toUpperCase() : '';
-      } catch { /* melhor esforço */ }
-    }
-    const role = String(meta.role || '').toLowerCase();
-    // 2026-08-21 — contas institucionais/admin não têm `bi` no metadata: usar
-    // o código institucional / nº de agente como chave de identidade, senão o
-    // escopo de titularidade ficava vazio e o proxy devolvia TODAS as linhas
-    // (ex.: o leitor QR recebia documentos de demonstração de outras contas).
-    if (!bi && role === 'instituicao' && meta.instituicao) bi = String(meta.instituicao).toUpperCase();
-    if (!bi && role === 'admin' && meta.agent) bi = String(meta.agent).toUpperCase();
-    return {
-      bi, email: u.email || '', role,
-      isAdmin: role === 'admin',
-      isInst: role === 'instituicao',
-      instCode: String(meta.instituicao || '').trim().toUpperCase(),
-      demo: !!bi && DADOS_DEMO_BIS.includes(bi),
-    };
-  } catch {
-    return { erro: 'Serviço de identidade indisponível. Tente novamente.' };
-  }
-}
 
 // Filtros de cliente: só colunas conhecidas; valores limitados.
 function dadosSanitizarFiltros(tabela: string, filtros: any): Record<string, string> | null {
@@ -4594,12 +4679,12 @@ async function denunciaActivarFase(opts: {
   const ident = await dadosResolverIdentidade(supaUrl, serviceKey, token);
   if ('erro' in ident) return { status: 401, json: { ok: false, erro: ident.erro } };
   if (!ident.isInst) return { status: 403, json: { ok: false, erro: 'Só a instituição destinatária pode actualizar a fase da denúncia.' } };
-  // Agente autenticado: user_metadata.agent (INAPEM-LLMM-01); instCode = INAPEM-LLMM.
+  // Agente autenticado: app_metadata.agent (INAPEM-LLMM-01); instCode = INAPEM-LLMM.
   let agente = '';
   try {
     const ru = await fetch(`${supaUrl}/auth/v1/user`, { headers: { apikey: serviceKey, Authorization: `Bearer ${token}` } });
     const u = ru.ok ? await ru.json() : null;
-    const meta: any = { ...((u && u.app_metadata) || {}), ...((u && u.user_metadata) || {}) };
+    const meta: any = { ...((u && u.app_metadata) || {}) };
     agente = String(meta.agent || '').trim().toUpperCase();
   } catch { /* melhor esforço */ }
   if (!agente && ident.bi) agente = ident.bi;
@@ -4887,7 +4972,7 @@ async function dadosResolverEExecutar(opts: {
             const users = lista?.users || [];
             if (!users.length) break;
             for (const u of users) {
-              const uBi = String(u?.user_metadata?.bi || u?.app_metadata?.bi || '').toUpperCase();
+              const uBi = String(u?.app_metadata?.bi || '').toUpperCase();
               const uEmail = String(u?.email || '').toLowerCase();
               if (
                 uBi === biNorm ||
@@ -4924,7 +5009,7 @@ async function dadosResolverEExecutar(opts: {
         if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
         const sess = await sessResp.json().catch(() => null);
         const user = sess && (sess.user || sess);
-        const meta = (user && user.user_metadata) || {};
+        const meta = (user && user.app_metadata) || {};
         if (String(meta.role || '').toLowerCase() !== 'admin' || String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '') !== 'ADMIN-0001') {
           return res.status(403).json({ ok: false, erro: 'Apenas o Admin Alfa executa a limpeza de órfãos.' });
         }
@@ -4989,9 +5074,17 @@ async function dadosResolverEExecutar(opts: {
     }
 
     // 2026-09-03 — ENDPOINT ESPECÍFICO PARA APROVAÇÃO DE INSTITUIÇÕES:
-    // Permite ao admin (mesmo demo/local) aprovar instituições sem necessidade
-    // de sessão Supabase Auth real. Usa service role key para fazer a actualização.
+    // Requer sessão administrativa real antes de utilizar a service role.
     if (url.includes('/api/admin-aprovar-instituicao') && method === 'POST') {
+    // Toda a escrita privilegiada requer sessão real de administrador.
+    const adminUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+    const adminKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+    const adminToken = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+    if (!adminToken) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+    if (!adminUrl || !adminKey) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+    const adminIdentity = await dadosResolverIdentidade(adminUrl, adminKey, adminToken);
+    if ('erro' in adminIdentity) return res.status(401).json({ ok: false, erro: adminIdentity.erro });
+    if (!adminIdentity.isAdmin || adminIdentity.demo) return res.status(403).json({ ok: false, erro: 'Apenas administradores autorizados.' });
       try {
         const supaUrlAp = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
         const serviceKeyAp = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
@@ -5041,7 +5134,13 @@ async function dadosResolverEExecutar(opts: {
           }
           
           console.log('[ADMIN-APROVAR] Sucesso!');
-          return res.status(200).json({ ok: true, bi_numero, status });
+          // 2026-11-16 — a aprovação atribui a identidade (v39/v41).
+          let provisionamento: Awaited<ReturnType<typeof provisionarIdentidadeCidadao>> | null = null;
+          if (status === 'Aprovado') {
+            provisionamento = await provisionarIdentidadeCidadao(supaUrlAp, serviceKeyAp, bi_numero);
+            console.log('[ADMIN-APROVAR] provisionamento:', provisionamento);
+          }
+          return res.status(200).json({ ok: true, bi_numero, status, provisionamento });
         } catch (fetchErr: any) {
           clearTimeout(timeoutId);
           console.error('[ADMIN-APROVAR] Erro no fetch:', fetchErr);
@@ -5053,11 +5152,17 @@ async function dadosResolverEExecutar(opts: {
       }
     }
 
-    // v37.79 — ELIMINAÇÃO DE INSTITUIÇÃO PELO ADMIN (sem necessidade de sessão real):
-    // O admin demo (ADMIN-0001) não tem sessão Supabase Auth, por isso o endpoint
-    // /api/eliminar-instituicao falha com 401. Este endpoint usa service role key
-    // no servidor para fazer a eliminação completa em cascata.
+    // Eliminação institucional: exige sessão administrativa real.
     if (url.includes('/api/admin-eliminar-instituicao') && method === 'POST') {
+    // Toda a escrita privilegiada requer sessão real de administrador.
+    const adminUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+    const adminKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+    const adminToken = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+    if (!adminToken) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+    if (!adminUrl || !adminKey) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+    const adminIdentity = await dadosResolverIdentidade(adminUrl, adminKey, adminToken);
+    if ('erro' in adminIdentity) return res.status(401).json({ ok: false, erro: adminIdentity.erro });
+    if (!adminIdentity.isAdmin || adminIdentity.demo) return res.status(403).json({ ok: false, erro: 'Apenas administradores autorizados.' });
       console.log('[ADMIN-ELIMINAR] Endpoint chamado com:', body);
       try {
         const supaUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
@@ -5287,8 +5392,20 @@ async function dadosResolverEExecutar(opts: {
         if (!supaUrlUpload || !serviceKeyUpload) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
         if (!bucket || !caminho || !base64) return res.status(400).json({ ok: false, erro: 'bucket, caminho e base64 são obrigatórios.' });
         if (!UPLOAD_BUCKETS_PERMITIDOS.includes(String(bucket))) return res.status(400).json({ ok: false, erro: 'Bucket não permitido.' });
+        // 2026-11-16 — exige sessão e titularidade: sem isto qualquer visitante
+        // escrevia em pastas alheias com a service role (fotos de B.I., anexos).
+        const tokenUp = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+        if (!tokenUp) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+        const identUp = await dadosResolverIdentidade(supaUrlUpload, serviceKeyUpload, tokenUp);
+        if ('erro' in identUp) return res.status(401).json({ ok: false, erro: identUp.erro });
+        if (!identUp.isAdmin && !identUp.isInst && String(bucket) === 'kb_ficheiros') {
+          return res.status(403).json({ ok: false, erro: 'Sem autorização para este ficheiro.' });
+        }
         const caminhoLimpo = String(caminho).split('/').map((s: string) => s.replace(/[^\w.\-]+/g, '_')).join('/').replace(/^\.+/, '');
         if (!caminhoLimpo || caminhoLimpo.includes('..')) return res.status(400).json({ ok: false, erro: 'Caminho inválido.' });
+        if (!storageCaminhoPermitido(identUp, String(bucket), caminhoLimpo)) {
+          return res.status(403).json({ ok: false, erro: 'Sem autorização para este ficheiro.' });
+        }
         const buf = Buffer.from(base64, 'base64');
         if (buf.length === 0 || buf.length > 10 * 1024 * 1024) return res.status(400).json({ ok: false, erro: 'Ficheiro vazio ou demasiado grande (máx. 10 MB).' });
         const form = new FormData();
@@ -5319,6 +5436,12 @@ async function dadosResolverEExecutar(opts: {
         const supaUrlSign = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
         if (!supaUrlSign || !serviceKeySign) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
         if (!s) return res.status(400).json({ ok: false, erro: 'ref ausente.' });
+        // 2026-11-16 — sem titularidade, qualquer visitante assinava (e lia)
+        // documentos alheios: fotos de B.I., anexos e KB de outras instituições.
+        const tokenSign = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+        if (!tokenSign) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+        const identSign = await dadosResolverIdentidade(supaUrlSign, serviceKeySign, tokenSign);
+        if ('erro' in identSign) return res.status(401).json({ ok: false, erro: identSign.erro });
         let bucket = ''; let path = '';
         if (s.startsWith('storage:')) {
           const rest = s.slice('storage:'.length);
@@ -5331,6 +5454,9 @@ async function dadosResolverEExecutar(opts: {
           bucket = m[1]; path = decodeURIComponent(m[2]);
         }
         if (!UPLOAD_BUCKETS_PERMITIDOS.includes(bucket)) return res.status(400).json({ ok: false, erro: 'Bucket não permitido.' });
+        if (!storageCaminhoPermitido(identSign, bucket, path)) {
+          return res.status(403).json({ ok: false, erro: 'Sem autorização sobre este ficheiro.' });
+        }
         const signResp = await fetch(`${supaUrlSign}/storage/v1/object/sign/${bucket}/${path}`, {
           method: 'POST',
           headers: { apikey: serviceKeySign, Authorization: `Bearer ${serviceKeySign}`, 'Content-Type': 'application/json' },

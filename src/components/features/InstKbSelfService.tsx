@@ -137,9 +137,13 @@ export default function InstKbSelfService({ institutionCode, profileName = '', o
         }
         if (!urlGuardada && file.size <= 4 * 1024 * 1024) {
           const base64 = await fileToBase64(file);
+          // 2026-11-16 — o servidor deriva a pasta da identidade confirmada:
+          // o fallback exige sessão (sem token responde 401).
+          const { data: sessaoKb } = await supabase.auth.getSession();
+          const tokenKb = sessaoKb?.session?.access_token || '';
           const upResp = await fetch('/api/kb-upload', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...(tokenKb ? { Authorization: `Bearer ${tokenKb}` } : {}) },
             body: JSON.stringify({ nome: file.name, base64, sigla, tipo: file.type }),
           });
           const upJson = await upResp.json().catch(() => ({ ok: false, erro: 'Resposta inválida do servidor.' }));

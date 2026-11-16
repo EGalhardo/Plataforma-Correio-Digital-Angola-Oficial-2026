@@ -268,7 +268,15 @@ async function startServer() {
   // devolve o URL público. Tamanho máximo 10 MB.
   app.post("/api/kb-upload", async (req, res) => {
     try {
-      const { nome, base64, sigla } = req.body || {};
+      const supaUrlKb = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+      const serviceKeyKb = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+      const tokenKb = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+      if (!tokenKb) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+      const identKb = await dadosResolverIdentidade(supaUrlKb, serviceKeyKb, tokenKb);
+      if ('erro' in identKb) return res.status(401).json({ ok: false, erro: identKb.erro });
+      if (!identKb.isAdmin && !identKb.isInst) return res.status(403).json({ ok: false, erro: 'Apenas a instituição (ou a Administração) publica na Base de Conhecimento.' });
+      const { nome, base64, sigla: siglaCliente } = req.body || {};
+      const sigla = identKb.isAdmin ? siglaCliente : identKb.instCode;
       if (!nome || typeof nome !== 'string' || !base64 || typeof base64 !== 'string') {
         return res.status(400).json({ ok: false, erro: 'nome e base64 são obrigatórios.' });
       }
@@ -278,11 +286,12 @@ async function startServer() {
       const admin = createSupabaseAdminClient();
       if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço de armazenamento indisponível.' });
       const sanitizado = nome.replace(/[^\w.\-]+/g, '_');
-      const pasta = (sigla || 'inst').replace(/[^\w\-]+/g, '_').toUpperCase();
+      const pasta = String(sigla || '').replace(/[^\w\-]+/g, '_').toUpperCase();
+      if (!pasta) return res.status(403).json({ ok: false, erro: 'Sem código institucional para o ficheiro.' });
       const filePath = `kb/${pasta}/${Date.now()}-${sanitizado}`;
       const { error } = await admin.storage
         .from('kb_ficheiros')
-        .upload(filePath, buf, { cacheControl: '3600', upsert: true, contentType: req.body?.tipo || undefined });
+        .upload(filePath, buf, { cacheControl: '3600', upsert: true, contentType: String(req.body?.tipo || 'application/octet-stream') });
       if (error) {
         console.error('[KB-UPLOAD] Erro no upload:', error.message);
         return res.status(500).json({ ok: false, erro: error.message });
@@ -372,7 +381,7 @@ async function startServer() {
       // instituição (essa pertence ao responsável — antes a edição do membro
       // sobrescrevia o nome/telefone/e-mail do responsável na nuvem). Com
       // `agente` presente, o servidor confirma que o utilizador do TOKEN da
-      // sessão é o próprio membro e actualiza apenas os user_metadata da
+      // sessão é o próprio membro e actualiza apenas os app_metadata da
       // conta Auth DELE (name/phone/email — nunca senha nem role).
       const agenteNorm = String(agente || '').trim().toUpperCase();
       if (agenteNorm) {
@@ -383,7 +392,7 @@ async function startServer() {
         if (sessErr || !sess || !sess.user) {
           return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
         }
-        const meta = (sess.user.user_metadata || {}) as Record<string, unknown>;
+        const meta = (sess.user.app_metadata || {}) as Record<string, unknown>;
         const metaAgent = String(meta.agent || '').trim().toUpperCase();
         if (metaAgent !== agenteNorm) {
           return res.status(403).json({ ok: false, erro: 'O Nº Agente não corresponde à sessão autenticada.' });
@@ -396,7 +405,7 @@ async function startServer() {
         }
         if (!Object.keys(patch).length) return res.status(400).json({ ok: false, erro: 'Nenhum campo do agente para gravar.' });
         const { error: updErr } = await admin.auth.admin.updateUserById(sess.user.id, {
-          user_metadata: { ...meta, ...patch },
+          app_metadata: { ...meta, ...patch },
         });
         if (updErr) return res.status(500).json({ ok: false, erro: updErr.message });
         return res.status(200).json({ ok: true, gravado: Object.keys(patch), agente: true });
@@ -504,6 +513,34 @@ const DADOS_COLUNAS: Record<string, Record<string, boolean>> = {
 interface DadosIdentidade {
   bi: string; email: string; role: string;
   isAdmin: boolean; isInst: boolean; instCode: string; demo: boolean;
+}
+
+// Autorização de objectos de Storage (2026-11-16): o servidor assina/escreve
+// com a service role, por isso o token da sessão TEM de provar que o objecto
+// pertence à identidade — senão qualquer visitante leria/escrevia ficheiros
+// alheios (fotos de B.I., anexos de correspondência, KB de outra instituição).
+// Regras: admin → tudo; instituição → kb/<SIGLA>/…, <SIGLA>/… e fotos com o
+// próprio código; cidadão → <BI>/… e fotos com o próprio BI no nome.
+function storageCaminhoPermitido(ident: DadosIdentidade, bucket: string, caminho: string): boolean {
+  if (ident.isAdmin) return true;
+  const p = String(caminho || '').replace(/^\/+/, '');
+  if (!p || p.includes('..')) return false;
+  const segs = p.split('/').filter(Boolean);
+  if (!segs.length) return false;
+  const chaves = new Set<string>(
+    [ident.bi, ident.instCode].map((v) => String(v || '').trim().toUpperCase()).filter(Boolean),
+  );
+  const primeiro = segs[0].toUpperCase();
+  if (bucket === 'kb_ficheiros') {
+    const sigla = (primeiro === 'KB' ? segs[1] || '' : segs[0]).toUpperCase();
+    return ident.isInst && !!ident.instCode && sigla === ident.instCode;
+  }
+  if (bucket === 'fotos_perfil') {
+    const ficheiro = segs[segs.length - 1].toUpperCase();
+    return [...chaves].some((k) => ficheiro.startsWith(k));
+  }
+  // documentos_registo / correspondencias_anexos — pasta = chave do titular
+  return chaves.has(primeiro);
 }
 
 type EscopoFiltros = { or: string[]; and: Record<string, string> } | null;
@@ -677,6 +714,44 @@ const DADOS_TABELAS: Record<string, {
 // 2026-08-21 (desempenho) — cache em memória de 60s por token: evita o
 // round-trip /auth/v1/user em CADA pedido do proxy.
 const dadosIdentCache = new Map<string, { ts: number; val: DadosIdentidade | { erro: string } }>();
+
+// Provisionamento de identidade na APROVAÇÃO (2026-11-16, v39/v41): depois de
+// a v39 deixar de promover claims do registo, a única via legítima para uma
+// conta nova receber identidade é a decisão administrativa. Ao aprovar um
+// registo de cidadão, a conta Auth sintética (bi.<bi>@cidadao.…) passa a ter
+// bi + role='cidadao' em app_metadata — o que o titular não consegue forjar.
+async function provisionarIdentidadeCidadao(
+  supaUrl: string, serviceKey: string, biNumero: string,
+): Promise<{ ok: boolean; conta?: string; detalhe?: string }> {
+  const bi = String(biNumero || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (!bi) return { ok: false, detalhe: 'BI vazio' };
+  const h = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' };
+  try {
+    for (let pagina = 1; pagina <= 10; pagina++) {
+      const lr = await fetch(`${supaUrl}/auth/v1/admin/users?per_page=200&page=${pagina}`, { headers: h });
+      if (!lr.ok) return { ok: false, detalhe: `listUsers ${lr.status}` };
+      const lista = await lr.json().catch(() => null);
+      const users: any[] = lista?.users || [];
+      if (!users.length) break;
+      const conta = users.find((u) => {
+        const email = String(u?.email || '').toLowerCase();
+        const metaBi = String(u?.app_metadata?.bi || '').trim().toUpperCase();
+        return metaBi === bi || email === `bi.${bi.toLowerCase()}@cidadao.correiodigital.ao`;
+      });
+      if (conta) {
+        const dr = await fetch(`${supaUrl}/auth/v1/admin/users/${conta.id}`, {
+          method: 'PUT', headers: h,
+          body: JSON.stringify({ app_metadata: { ...(conta.app_metadata || {}), bi, role: 'cidadao' } }),
+        });
+        return dr.ok ? { ok: true, conta: conta.id } : { ok: false, detalhe: `update ${dr.status}` };
+      }
+    }
+    return { ok: true, conta: undefined, detalhe: 'sem conta Auth (registo anterior ao registo na nuvem)' };
+  } catch (e) {
+    return { ok: false, detalhe: String((e as Error)?.message || e).slice(0, 120) };
+  }
+}
+
 async function dadosResolverIdentidade(supaUrl: string, serviceKey: string, token: string): Promise<DadosIdentidade | { erro: string }> {
   const cacheKey = `${supaUrl}|${token}`;
   const hit = dadosIdentCache.get(cacheKey);
@@ -692,30 +767,27 @@ async function dadosResolverIdentidadeRaw(supaUrl: string, serviceKey: string, t
     });
     if (!r.ok) return { erro: 'Sessão inválida ou expirada. Inicie sessão novamente.' };
     const u = await r.json();
-    const meta: any = { ...(u.app_metadata || {}), ...(u.user_metadata || {}) };
-    let bi = String(meta.bi || '').trim().toUpperCase();
-    if (!bi && u.email) {
-      try {
-        const pr = await fetch(`${supaUrl}/rest/v1/profiles?email=eq.${encodeURIComponent(u.email)}&select=bi&limit=1`, {
-          headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
-        });
-        const rows = await pr.json().catch(() => []);
-        bi = (rows && rows[0] && rows[0].bi) ? String(rows[0].bi).toUpperCase() : '';
-      } catch { /* melhor esforço */ }
+    // Claims de autorização só podem vir de fonte atribuída pelo servidor.
+    // NÃO PUBLICAR isoladamente: o trigger e o provisionamento de contas
+    // também têm de ser migrados/validados, incluindo contas existentes.
+    const meta = (u.app_metadata && typeof u.app_metadata === 'object') ? u.app_metadata : {};
+    const claim = (value: unknown) => typeof value === 'string' ? value.trim().toUpperCase() : '';
+    const role = typeof meta.role === 'string' ? meta.role.trim().toLowerCase() : '';
+    if (!['admin', 'instituicao', 'cidadao'].includes(role)) {
+      return { erro: 'Identidade ainda não provisionada. Contacte a Administração.' };
     }
-    const role = String(meta.role || '').toLowerCase();
-    // 2026-08-21 — contas institucionais/admin não têm `bi` no metadata: usar
-    // o código institucional / nº de agente como chave de identidade, senão o
-    // escopo de titularidade ficava vazio e o proxy devolvia TODAS as linhas
-    // (ex.: o leitor QR recebia documentos de demonstração de outras contas).
-    if (!bi && role === 'instituicao' && meta.instituicao) bi = String(meta.instituicao).toUpperCase();
-    if (!bi && role === 'admin' && meta.agent) bi = String(meta.agent).toUpperCase();
+    const instCode = role === 'instituicao' ? claim(meta.instituicao) : '';
+    const bi = claim(meta.bi) || (role === 'instituicao' ? instCode : role === 'admin' ? claim(meta.agent) : '');
+    // Nunca permitir que um escopo vazio seja convertido numa consulta global.
+    if (!bi || (role === 'instituicao' && !instCode)) {
+      return { erro: 'Identidade incompleta. Contacte a Administração.' };
+    }
     return {
-      bi, email: u.email || '', role,
+      bi, email: typeof u.email === 'string' ? u.email : '', role,
       isAdmin: role === 'admin',
       isInst: role === 'instituicao',
-      instCode: String(meta.instituicao || '').trim().toUpperCase(),
-      demo: !!bi && DADOS_DEMO_BIS.includes(bi),
+      instCode,
+      demo: DADOS_DEMO_BIS.includes(bi),
     };
   } catch {
     return { erro: 'Serviço de identidade indisponível. Tente novamente.' };
@@ -1082,12 +1154,12 @@ async function denunciaActivarFase(opts: {
   const ident = await dadosResolverIdentidade(supaUrl, serviceKey, token);
   if ('erro' in ident) return { status: 401, json: { ok: false, erro: ident.erro } };
   if (!ident.isInst) return { status: 403, json: { ok: false, erro: 'Só a instituição destinatária pode actualizar a fase da denúncia.' } };
-  // Agente autenticado: user_metadata.agent (INAPEM-LLMM-01); instCode = INAPEM-LLMM.
+  // Agente autenticado: app_metadata.agent (INAPEM-LLMM-01); instCode = INAPEM-LLMM.
   let agente = '';
   try {
     const ru = await fetch(`${supaUrl}/auth/v1/user`, { headers: { apikey: serviceKey, Authorization: `Bearer ${token}` } });
     const u = ru.ok ? await ru.json() : null;
-    const meta: any = { ...((u && u.app_metadata) || {}), ...((u && u.user_metadata) || {}) };
+    const meta: any = { ...((u && u.app_metadata) || {}) };
     agente = String(meta.agent || '').trim().toUpperCase();
   } catch { /* melhor esforço */ }
   if (!agente && ident.bi) agente = ident.bi;
@@ -1213,7 +1285,7 @@ async function dadosResolverEExecutar(opts: {
   // /api/admin-cidadao — eliminação em cascata de um cadastro de cidadão
   // (2026-08-20): só administradores REAIS (role admin no Auth metadata).
   // Executa com a service role: registo na fila, perfil, pedidos, notificações,
-  // contactos, documentos e a conta Auth (localizada por user_metadata.bi).
+  // contactos, documentos e a conta Auth (localizada por app_metadata.bi).
   // Contas demo canónicas são recusadas (403 demo) — Modo Demo intocado.
 // v37.78.10 — PURGA TOTAL DE VESTÍGIOS por chave (BI do cidadão ou Nº de agente).
 // ----------------------------------------------------------------------------
@@ -1364,9 +1436,10 @@ async function varrerStorageOrfaosRest(supaUrl: string, serviceKey: string): Pro
       if (!users.length) break;
       for (const u of users) {
         const meta = (u.user_metadata || {}) as Record<string, unknown>;
+        const mA = (u.app_metadata || {}) as Record<string, unknown>;
         const m = String(meta.avatar_url || '').match(/fotos_perfil\/(.+?)(?:\?|$)/);
         if (m) { try { refsAv.add(decodeURIComponent(m[1])); } catch { refsAv.add(m[1]); } }
-        [meta.bi, meta.agent, meta.instituicao].forEach(v => { const k = normChaveElim(v); if (k) chavesAuth.add(k); });
+        [meta.bi, meta.agent, meta.instituicao, mA.bi, mA.agent, mA.instituicao].forEach(v => { const k = normChaveElim(v); if (k) chavesAuth.add(k); });
       }
     }
     const pr = await fetch(`${supaUrl}/rest/v1/profiles?select=bi&limit=3000`, { headers: HSo });
@@ -1569,7 +1642,7 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
             const { data: lu, error: listErr } = await adminPurga.auth.admin.listUsers({ page: pagina, perPage: 200 });
             if (listErr || !lu || !lu.users || !lu.users.length) break;
             for (const u of lu.users) {
-              const uBi = String(u?.user_metadata?.bi || u?.app_metadata?.bi || '').toUpperCase();
+              const uBi = String(u?.app_metadata?.bi || '').toUpperCase();
               const uEmail = String(u?.email || '').toLowerCase();
               if (
                 uBi === biNorm ||
@@ -1643,7 +1716,7 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
       if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
       const { data: sess, error: sessErr } = await admin.auth.getUser(token);
       if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
-      const meta = (sess.user.user_metadata || {}) as Record<string, unknown>;
+      const meta = (sess.user.app_metadata || {}) as Record<string, unknown>;
       const roleCaller = String(meta.role || '').toLowerCase();
       const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
       if (roleCaller !== 'admin' || agentCaller !== 'ADMIN-0001') {
@@ -1723,7 +1796,7 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
       if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
       const { data: sess, error: sessErr } = await admin.auth.getUser(token);
       if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
-      const meta = ((sess.user.user_metadata || {}) as Record<string, unknown>);
+      const meta = ((sess.user.app_metadata || {}) as Record<string, unknown>);
       const role = String(meta.role || '').toLowerCase();
       const minhaSigla = normChaveElim(role === 'instituicao' ? (meta.instituicao || '') : role === 'admin' ? (meta.agent || '') : (meta.bi || ''));
       if (role !== 'admin' && (!minhaSigla || !sigla || minhaSigla !== sigla)) {
@@ -1749,7 +1822,7 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
       if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
       const { data: sess, error: sessErr } = await admin.auth.getUser(token);
       if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
-      const meta = ((sess.user.user_metadata || {}) as Record<string, unknown>);
+      const meta = ((sess.user.app_metadata || {}) as Record<string, unknown>);
       const role = String(meta.role || '').toLowerCase();
       const minhaChave = normChaveElim(
         role === 'instituicao' ? (meta.instituicao || '') :
@@ -1814,7 +1887,7 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
       if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
       const { data: sess, error: sessErr } = await admin.auth.getUser(token);
       if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
-      const roleCaller = String(((sess.user.user_metadata || {}) as Record<string, unknown>).role || '').toLowerCase();
+      const roleCaller = String(((sess.user.app_metadata || {}) as Record<string, unknown>).role || '').toLowerCase();
       if (roleCaller !== 'admin') return res.status(403).json({ ok: false, erro: 'Apenas a Administração elimina adesões institucionais.' });
 
       // Chaves válidas: o código, o responsável (-01) e agentes -NN do PRÓPRIO código.
@@ -1960,7 +2033,7 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
       if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
       const { data: sess, error: sessErr } = await admin.auth.getUser(token);
       if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
-      const meta = (sess.user.user_metadata || {}) as Record<string, unknown>;
+      const meta = (sess.user.app_metadata || {}) as Record<string, unknown>;
       const roleCaller = String(meta.role || '').toLowerCase();
       const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
       const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
@@ -2063,7 +2136,7 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
       if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
       const { data: sess, error: sessErr } = await admin.auth.getUser(token);
       if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
-      const meta = (sess.user.user_metadata || {}) as Record<string, unknown>;
+      const meta = (sess.user.app_metadata || {}) as Record<string, unknown>;
       const roleCaller = String(meta.role || '').toLowerCase();
       const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
       const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
@@ -2118,7 +2191,7 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
   // ============================================================================
   // PERMISSÕES DE PÁGINA DO AGENTE (2026-08-22)
   // ----------------------------------------------------------------------------
-  // As páginas que cada colaborador/agente pode abrir vivem nos user_metadata
+  // As páginas que cada colaborador/agente pode abrir vivem nos app_metadata
   // da conta Auth (Supabase = fonte canónica). Este endpoint É a verificação
   // de backend: ler devolve o que está NA NUVEM (o cliente nunca decide); e
   // gravar só é aceite do RESPONSÁVEL da área (instituição '-01' ou Admin
@@ -2135,7 +2208,7 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
       if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
       const { data: sess, error: sessErr } = await admin.auth.getUser(token);
       if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
-      const meta = (sess.user.user_metadata || {}) as Record<string, unknown>;
+      const meta = (sess.user.app_metadata || {}) as Record<string, unknown>;
       const roleCaller = String(meta.role || '').toLowerCase();
       const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
       const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
@@ -2185,12 +2258,12 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
           const achado = lista.users.find((u: any) => String(u.email || '').toLowerCase() === emailAlvo.toLowerCase());
           if (achado) {
             alvoId = achado.id;
-            alvoMeta = (achado.user_metadata || {}) as Record<string, unknown>;
+            alvoMeta = (achado.app_metadata || {}) as Record<string, unknown>;
           }
         }
         if (!alvoId) return res.status(404).json({ ok: false, erro: 'Conta do agente não encontrada na nuvem (a gravação local mantém-se).' });
         const { error: updErr } = await admin.auth.admin.updateUserById(alvoId, {
-          user_metadata: { ...(alvoMeta || {}), paginasPermitidas: validas },
+          app_metadata: { ...(alvoMeta || {}), paginasPermitidas: validas },
         });
         if (updErr) return res.status(500).json({ ok: false, erro: updErr.message });
         return res.status(200).json({ ok: true, agente: agenteNorm, paginas: validas });
@@ -2219,7 +2292,7 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
       if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
       const { data: sess, error: sessErr } = await admin.auth.getUser(token);
       if (sessErr || !sess || !sess.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
-      const meta = (sess.user.user_metadata || {}) as Record<string, unknown>;
+      const meta = (sess.user.app_metadata || {}) as Record<string, unknown>;
       const roleCaller = String(meta.role || '').toLowerCase();
       const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
       const instCaller = String(meta.instituicao || '').trim().toUpperCase().replace(/\s+/g, '');
@@ -2229,7 +2302,7 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
       // ---- LISTAR: equipa da própria área (base central) ----
       if (acao === 'listar') {
         // 2026-11-13 — inclui as páginas concedidas a cada membro (fonte:
-        // user_metadata do Auth, a mesma do login) para o popup «Editar
+        // app_metadata do Auth, a mesma do login) para o popup «Editar
         // Membro da Equipa» abrir com a pré-seleção REAL do colaborador.
         // null = sem lista gravada (sem restrições / legado).
         const mapaPaginasAuth = async (dominio: string, whitelist: string[]): Promise<Map<string, string[]>> => {
@@ -2239,7 +2312,7 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
             if (listErr || !lista || !lista.users || !lista.users.length) break;
             lista.users.forEach((uu: any) => {
               const em = String(uu?.email || '').toLowerCase();
-              const meta = (uu && uu.user_metadata) || {};
+              const meta = (uu && uu.app_metadata) || {};
               if (!em.startsWith('agente.') || !em.endsWith(`@${dominio}`) || !Array.isArray(meta.paginasPermitidas)) return;
               mapa.set(em, (meta.paginasPermitidas as unknown[]).map((x) => String(x).trim()).filter(Boolean).filter((p) => whitelist.includes(p)));
             });
@@ -2469,6 +2542,15 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
   // Permite ao admin (mesmo demo/local) aprovar instituições sem necessidade
   // de sessão Supabase Auth real. Usa service role key para fazer a actualização.
   app.post("/api/admin-aprovar-instituicao", async (req, res) => {
+    // Toda a escrita privilegiada requer sessão real de administrador.
+    const adminUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+    const adminKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+    const adminToken = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+    if (!adminToken) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+    if (!adminUrl || !adminKey) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+    const adminIdentity = await dadosResolverIdentidade(adminUrl, adminKey, adminToken);
+    if ('erro' in adminIdentity) return res.status(401).json({ ok: false, erro: adminIdentity.erro });
+    if (!adminIdentity.isAdmin || adminIdentity.demo) return res.status(403).json({ ok: false, erro: 'Apenas administradores autorizados.' });
     try {
       const supaUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
@@ -2518,7 +2600,14 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
         }
         
         console.log('[ADMIN-APROVAR] Sucesso!');
-        return res.status(200).json({ ok: true, bi_numero, status });
+        // 2026-11-16 — a aprovação é o momento em que a identidade é atribuída
+        // (o registo já não a promove). Só para cidadãos; nunca bloqueia a resposta.
+        let provisionamento: Awaited<ReturnType<typeof provisionarIdentidadeCidadao>> | null = null;
+        if (status === 'Aprovado') {
+          provisionamento = await provisionarIdentidadeCidadao(supaUrl, serviceKey, bi_numero);
+          console.log('[ADMIN-APROVAR] provisionamento:', provisionamento);
+        }
+        return res.status(200).json({ ok: true, bi_numero, status, provisionamento });
       } catch (fetchErr) {
         clearTimeout(timeoutId);
         console.error('[ADMIN-APROVAR] Erro no fetch:', fetchErr);
@@ -2530,11 +2619,17 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
     }
   });
 
-  // v37.79 — ELIMINAÇÃO DE INSTITUIÇÃO PELO ADMIN (sem necessidade de sessão real):
-  // O admin demo (ADMIN-0001) não tem sessão Supabase Auth, por isso o endpoint
-  // /api/eliminar-instituicao falha com 401. Este endpoint usa service role key
-  // no servidor para fazer a eliminação completa em cascata.
+  // Eliminação institucional: exige sessão administrativa real.
   app.post("/api/admin-eliminar-instituicao", async (req, res) => {
+    // Toda a escrita privilegiada requer sessão real de administrador.
+    const adminUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+    const adminKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+    const adminToken = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+    if (!adminToken) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+    if (!adminUrl || !adminKey) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+    const adminIdentity = await dadosResolverIdentidade(adminUrl, adminKey, adminToken);
+    if ('erro' in adminIdentity) return res.status(401).json({ ok: false, erro: adminIdentity.erro });
+    if (!adminIdentity.isAdmin || adminIdentity.demo) return res.status(403).json({ ok: false, erro: 'Apenas administradores autorizados.' });
     console.log('[ADMIN-ELIMINAR] Endpoint chamado com:', req.body);
     try {
       const supaUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
@@ -2742,8 +2837,22 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
       const { bucket, caminho, base64, tipo } = req.body || {};
       if (!bucket || !caminho || !base64) return res.status(400).json({ ok: false, erro: 'bucket, caminho e base64 são obrigatórios.' });
       if (!UPLOAD_BUCKETS_PERMITIDOS.includes(String(bucket))) return res.status(400).json({ ok: false, erro: 'Bucket não permitido.' });
+      // 2026-11-16 — exige sessão e titularidade: sem isto qualquer visitante
+      // escrevia em pastas alheias com a service role (fotos de B.I., anexos).
+      const supaUrlUp = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+      const serviceKeyUp = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+      const tokenUp = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+      if (!tokenUp) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+      const identUp = await dadosResolverIdentidade(supaUrlUp, serviceKeyUp, tokenUp);
+      if ('erro' in identUp) return res.status(401).json({ ok: false, erro: identUp.erro });
       const caminhoLimpo = String(caminho).split('/').map(s => s.replace(/[^\w.\-]+/g, '_')).join('/').replace(/^\.+/, '');
       if (!caminhoLimpo || caminhoLimpo.includes('..')) return res.status(400).json({ ok: false, erro: 'Caminho inválido.' });
+      if (!identUp.isAdmin && !identUp.isInst && String(bucket) === 'kb_ficheiros') {
+        return res.status(403).json({ ok: false, erro: 'Sem autorização para este ficheiro.' });
+      }
+      if (!storageCaminhoPermitido(identUp, String(bucket), caminhoLimpo)) {
+        return res.status(403).json({ ok: false, erro: 'Sem autorização para este ficheiro.' });
+      }
       const buf = Buffer.from(base64, 'base64');
       if (buf.length === 0 || buf.length > 10 * 1024 * 1024) return res.status(400).json({ ok: false, erro: 'Ficheiro vazio ou demasiado grande (máx. 10 MB).' });
       const admin = createSupabaseAdminClient();
@@ -2765,6 +2874,14 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
       const { ref } = req.body || {};
       const s = String(ref || '').trim();
       if (!s) return res.status(400).json({ ok: false, erro: 'ref ausente.' });
+      // 2026-11-16 — sem titularidade, qualquer visitante assinava (e lia)
+      // documentos alheios: fotos de B.I., anexos e KB de outras instituições.
+      const supaUrlSig = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+      const serviceKeySig = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+      const tokenSig = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+      if (!tokenSig) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+      const identSig = await dadosResolverIdentidade(supaUrlSig, serviceKeySig, tokenSig);
+      if ('erro' in identSig) return res.status(401).json({ ok: false, erro: identSig.erro });
       const admin = createSupabaseAdminClient();
       if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
       let bucket = ''; let path = '';
@@ -2779,6 +2896,9 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
         bucket = m[1]; path = decodeURIComponent(m[2]);
       }
       if (!UPLOAD_BUCKETS_PERMITIDOS.includes(bucket)) return res.status(400).json({ ok: false, erro: 'Bucket não permitido.' });
+      if (!storageCaminhoPermitido(identSig, bucket, path)) {
+        return res.status(403).json({ ok: false, erro: 'Sem autorização sobre este ficheiro.' });
+      }
       const { data, error } = await admin.storage.from(bucket).createSignedUrl(path, 3600);
       if (error || !data?.signedUrl) return res.status(500).json({ ok: false, erro: error?.message || 'Falha ao assinar.' });
       return res.status(200).json({ ok: true, url: data.signedUrl });
@@ -2935,7 +3055,7 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
           const adminR = createSupabaseAdminClient();
           if (adminR) {
             const { data: rUsr, error: rErr } = await adminR.auth.getUser(tokR);
-            const roleR = String(((rUsr?.user?.user_metadata || {}) as Record<string, unknown>).role || '').toLowerCase();
+            const roleR = String(((rUsr?.user?.app_metadata || {}) as Record<string, unknown>).role || '').toLowerCase();
             autorizadoReadiness = !rErr && !!rUsr?.user && roleR === 'admin';
           }
         } catch { autorizadoReadiness = false; }

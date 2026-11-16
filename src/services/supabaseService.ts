@@ -582,18 +582,17 @@ export const eliminarInstituicaoCloud = async (code: string, agentes: string[] =
   }
 };
 
-/** 2026-09-03 — APROVAÇÃO DE INSTITUIÇÃO PELO ADMIN (sem necessidade de sessão real):
- *  O admin demo (ADMIN-0001) não tem sessão Supabase Auth, por isso o proxy /api/dados
- *  falha com 401. Este endpoint usa service role key no servidor para fazer a actualização.
- *  Status permitidos: 'Aprovado', 'Rejeitado', 'Em Correções', 'Pendente'. */
+/** Aprovação institucional exige uma sessão administrativa real e autorizada. */
 export const aprovarInstituicaoAdmin = async (
   bi_numero: string,
   status: 'Aprovado' | 'Rejeitado' | 'Em Correções' | 'Pendente',
 ): Promise<{ ok: boolean; erro?: string }> => {
   try {
+    const token = await obterTokenSessao();
+    if (!token) return { ok: false, erro: 'A sua sessão expirou por motivos de segurança. Saia e entre novamente para continuar.' };
     const resp = await fetch('/api/admin-aprovar-instituicao', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ bi_numero, status }),
     });
     const j = await resp.json().catch(() => null);
@@ -604,18 +603,17 @@ export const aprovarInstituicaoAdmin = async (
   }
 };
 
-/** v37.79 — ELIMINAÇÃO DE INSTITUIÇÃO PELO ADMIN (sem necessidade de sessão real):
- *  O admin demo (ADMIN-0001) não tem sessão Supabase Auth, por isso o endpoint
- *  /api/eliminar-instituicao falha com 401. Este endpoint usa service role key
- *  no servidor para fazer a eliminação completa em cascata. */
+/** Eliminação institucional exige uma sessão administrativa real e autorizada. */
 export const eliminarInstituicaoAdmin = async (
   bi_numero: string,
   agentes: string[] = [],
 ): Promise<{ ok: boolean; erro?: string; detalhes?: Record<string, number> }> => {
   try {
+    const token = await obterTokenSessao();
+    if (!token) return { ok: false, erro: 'A sua sessão expirou por motivos de segurança. Saia e entre novamente para continuar.' };
     const resp = await fetch('/api/admin-eliminar-instituicao', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ bi_numero, agentes }),
     });
     const j = await resp.json().catch(() => null);
