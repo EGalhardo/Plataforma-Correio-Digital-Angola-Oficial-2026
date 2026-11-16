@@ -30,6 +30,8 @@ interface State {
 }
 
 const CHAVE_RECARGA = 'cda_recarga_por_chunk';
+/** Uma recarga automática por incidente: 30 s depois já é outro incidente. */
+const JANELA_RECARGA_MS = 30_000;
 const MSG_CHUNK =
   /failed to fetch dynamically imported module|importing a module script failed|loading chunk|dynamically imported module|load failed|networkerror|err_network|unexpected token '<'|is not a valid javascript mime type/i;
 
@@ -58,25 +60,35 @@ export class FronteiraDePagina extends Component<Props, State> {
 
     if (!falhaDeFicheiro) return;
 
-    // Recarregar resolve o caso mais comum (ficheiro antigo em cache).
-    // Uma recarga por sessão, para nunca entrar em ciclo de refresh.
-    let jaRecarregou = false;
-    try {
-      jaRecarregou = sessionStorage.getItem(CHAVE_RECARGA) === '1';
-    } catch { /* sessão indisponível */ }
+    // 2026-11-16 — uma recarga por JANELA TEMPORAL, não por sessão, e só UMA
+    // em simultâneo. Antes, cada fronteira montada tentava recarregar: com
+    // meia dúzia de painéis na mesma página davam-se 8 recargas seguidas, o
+    // browser ficava sem página nenhuma e o utilizador via exactamente o
+    // ecrã branco que se queria eliminar.
+    //
+    // Regra agora: se houve uma recarga nos últimos 30 s, NÃO se recarrega —
+    // mostra-se a página de recuperação (o utilizador decide). Assim nunca
+    // há ciclo, e a tempestade de recargas é impossível.
+    let ultimaRecarga = 0;
+    try { ultimaRecarga = Number(sessionStorage.getItem(CHAVE_RECARGA) || 0); } catch { /* ignorar */ }
 
-    if (!jaRecarregou) {
-      try { sessionStorage.setItem(CHAVE_RECARGA, '1'); } catch { /* ignorar */ }
+    const recente = Date.now() - ultimaRecarga < JANELA_RECARGA_MS;
+    if (recente) {
+      // Já se recarregou há pouco e o problema persiste: recuperação visível.
       this.setState({ tentouRecarregar: true });
-      // Recarrega a página inteira: o browser volta a pedir os ficheiros actuais.
-      window.location.reload();
+      return;
     }
+
+    // Marcar ANTES de recarregar: as restantes fronteiras desta página vêem
+    // a marca e desistem de recarregar — só uma recarga acontece.
+    try { sessionStorage.setItem(CHAVE_RECARGA, String(Date.now())); } catch { /* ignorar */ }
+    this.setState({ tentouRecarregar: true });
+    window.location.reload();
   }
 
   componentDidMount() {
-    // Recarga bem-sucedida: limpar a guarda para que um futuro incidente
-    // (noutra sessão de trabalho) ainda possa beneficiar da recarga automática.
-    try { sessionStorage.removeItem(CHAVE_RECARGA); } catch { /* ignorar */ }
+    // Nada a limpar: a marca é temporal (JANELA_RECARGA_MS) e expira sozinha,
+    // em vez de ficar presa à sessão e impedir recuperações futuras.
   }
 
   private voltarAoPainel = () => {
