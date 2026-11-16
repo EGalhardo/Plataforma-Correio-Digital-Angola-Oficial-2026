@@ -1,0 +1,36 @@
+const { chromium } = require('playwright');
+const { login, APP } = require('./scripts/test_interop_contas_reais_playwright.cjs');
+(async () => {
+  const browser = await chromium.launch();
+  const c = await login(browser, 'cidadao', '/home/user/repo/test-artifacts');
+  const p = c.page;
+  await p.goto(`${APP}/#/nova-denuncia`, { waitUntil:'networkidle' });
+  await p.waitForTimeout(5000);
+  await p.locator('button:has-text("Criar Denuncia")').first().click({ force: true });
+  await p.waitForTimeout(4000);
+  console.log('campos:', JSON.stringify(await p.$$eval('input,select,textarea', els=>els.map(e=>({ph:e.placeholder,vis:!!e.offsetParent})).filter(x=>x.vis))));
+  await p.fill('input[placeholder*="Código Institucional"]', 'AGT-LMM-01');
+  await p.waitForTimeout(1500);
+  await p.fill('input[placeholder*="tema da sua mensagem"]', 'DIAG-DEN-1');
+  await p.fill('textarea', 'Texto da denúncia de diagnóstico.');
+  await p.waitForTimeout(1000);
+  const b = p.locator('button:has-text("Enviar Mensagem")').first();
+  console.log('Enviar Mensagem habilitado?', await b.isEnabled());
+  await b.click({ force: true });
+  await p.waitForTimeout(3000);
+  console.log('--- modal de modalidade ---');
+  const modais = await p.$$eval('button', els=>els.map(e=>(e.innerText||'').replace(/\s+/g,' ').trim()).filter(t=>/Normal|Denúncia|Reclama|OK/i.test(t)));
+  console.log('opções:', JSON.stringify(modais));
+  const opDen = p.locator('text=Denúncia').first();
+  console.log('existe opção Denúncia?', await opDen.count());
+  await opDen.click({ force: true });
+  await p.waitForTimeout(1200);
+  const ok = p.locator('button:has-text("OK")').first();
+  if (await ok.count()) await ok.click({ force: true });
+  await p.waitForTimeout(2500);
+  const conf = p.locator('button:has-text("ENVIAR CORRESPONDÊNCIA"), button:has-text("Enviar Correspondência")').first();
+  console.log('botão final existe?', await conf.count());
+  if (await conf.count()) { await conf.click({ force: true }); await p.waitForTimeout(8000); }
+  console.log('ecrã final:', (await p.evaluate(()=>document.body.innerText.replace(/\s+/g,' '))).slice(0,260));
+  await c.ctx.close(); await browser.close();
+})();

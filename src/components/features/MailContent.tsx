@@ -1241,6 +1241,14 @@ export function MailContent({
 
   // v37.4 — confirmação de sucesso após expedição «Todos»
   // v37.5 — ao fechar (botão, X, backdrop ou Escape) regressa à página
+  // 2026-11-16 — contadores PRÓPRIOS da caixa, para as abas serem coerentes
+  // entre si (Lidas + Não Lidas = Todas). Exclui eliminadas e ocultas.
+  const { naoLidasDaCaixa, lidasDaCaixa } = useMemo(() => {
+    const visiveis = inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id));
+    const lidas = visiveis.filter(m => isMensagemLida(m)).length;
+    return { naoLidasDaCaixa: visiveis.length - lidas, lidasDaCaixa: lidas };
+  }, [inbox, deletedMessageIds, hiddenMessageIds]);
+
   // «Correio» com a aba «Enviadas» activa, para ver já a expedição registada.
   const fecharSucessoSondagens = () => {
     setSucessoSondagens(null);
@@ -2517,12 +2525,15 @@ export function MailContent({
       <div className="bg-white border border-slate-300 rounded-[32px] p-2.5 shadow-sm flex flex-col lg:flex-row gap-3">
         <div className="grid grid-cols-2 sm:flex sm:flex-nowrap gap-1.5 p-1 bg-white border border-slate-200 rounded-2xl lg:min-w-[500px] w-full lg:w-auto">
           {[
-            { id: 'todas', label: 'Todas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)).length },
-            { id: 'lidas', label: 'Lidas', count: inbox.filter(m => !deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id) && isMensagemLida(m)).length },
-            // 2026-11-13 — «Não Lidas» = lista do badge (unreadTotal): o badge
-            // da aba reflecte exactamente o que o badge da foto de perfil
-            // conta (unreadMessagesList), com paridade 1:1 com a lista.
-            { id: 'naoLidas', label: 'Não Lidas', count: unreadTotal },
+            { id: 'todas', label: 'Todas', count: naoLidasDaCaixa + lidasDaCaixa },
+            { id: 'lidas', label: 'Lidas', count: lidasDaCaixa },
+            // 2026-11-16 — «Não Lidas» passa a ser um SUBCONJUNTO de «Todas».
+            // Antes reutilizava `unreadTotal`, o contador do SINO, que soma
+            // notificações de outros módulos (ocorrências, vídeo, etc.): a aba
+            // mostrava «Não Lidas» MAIOR do que «Todas» (ex.: 10 vs 18 com
+            // 12 lidas, ou 22 vs 15 na instituição). O sino continua a contar
+            // tudo; a aba conta apenas a caixa de correio que mostra.
+            { id: 'naoLidas', label: 'Não Lidas', count: naoLidasDaCaixa },
             { id: 'enviadas', label: 'Enviadas', count: contagemEnviadas },
             { id: 'excluidas', label: 'Arquivadas', count: [...inbox, ...sentMessages].filter(m => deletedMessageIds.includes(m.id) && !hiddenMessageIds.includes(m.id)).length }
           ].map(tab => {
