@@ -20,3 +20,4 @@ e2e_admin_shots/
 testes/evidencias/screenshots/
 testes/evidencias/**/*.png
 testes/**/*.png
+test-artifacts/
