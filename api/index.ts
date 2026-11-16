@@ -1282,6 +1282,20 @@ const normChaveElim = (v: unknown): string =>
 const PERFIL_RL_JANELA_MS = 60_000;
 const PERFIL_RL_MAX = 120;
 const perfilRL = new Map<string, { n: number; ate: number }>();
+// 2026-11-16 — LIMITADOR POR IP das rotas de e-mail público (boas-vindas,
+// recuperação). Sem isto, qualquer visitante podia usar a conta Resend da
+// plataforma para enviar correio em massa para o endereço que quisesse.
+const emailRlMap = new Map<string, { n: number; ate: number }>();
+const emailRateLimitOk = (req: any, max = 5, janelaMs = 10 * 60_000): boolean => {
+  const ip = String((req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'desconhecido');
+  const agora = Date.now();
+  if (emailRlMap.size > 5000) for (const [k, v] of emailRlMap) if (agora > v.ate) emailRlMap.delete(k);
+  const e = emailRlMap.get(ip);
+  if (!e || agora > e.ate) { emailRlMap.set(ip, { n: 1, ate: agora + janelaMs }); return true; }
+  e.n += 1;
+  return e.n <= max;
+};
+
 const perfilRateLimitOk = (req: any): boolean => {
   const ip = String((req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'desconhecido');
   const agora = Date.now();
@@ -3071,6 +3085,12 @@ O utilizador atual prefere interagir no dialeto regional de Angola: "${selectedD
     // Não persiste imagens nem dados sensíveis; logs apenas com metadados.
     // (Manter em sincronia com a rota equivalente em server.ts — dev local.)
     if (url.includes('/api/verificar-cadastro')) {
+      // 2026-11-16 — a pré-verificação consome créditos de visão por IA e é
+      // invocável sem sessão (passo público do registo): 10 por IP/10 min.
+      if (!emailRateLimitOk(req, 10, 10 * 60_000)) {
+        res.setHeader('Retry-After', '600');
+        return res.status(429).json({ ok: false, veredicto: 'REVISAO', alertas: ['limite'], motivo: 'Demasiados pedidos de verificação. Tente novamente mais tarde.' });
+      }
       const pviResponderBase = (res: any, payload: any) => res.status(200).json(payload);
       const pviEmit = (emit: any, veredicto: 'APTO' | 'REVISAO', alertas: string[], motivo: string) => emit(veredicto, alertas, motivo);
       const pviStartedAt = Date.now();
@@ -3412,11 +3432,22 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
           return res.status(200).json({ ok: true, gravado: Object.keys(patch), agente: true });
         }
 
+        // 2026-11-16 — TITULARIDADE: sem isto qualquer visitante criava ou
+        // reescrevia a linha `profiles` de outro B.I. com a service role.
+        const tokenPs = String(req.headers.authorization || (req.headers as any).Authorization || '').replace(/^Bearer\s+/i, '').trim();
+        if (!tokenPs) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+        const identPs = await dadosResolverIdentidade(supaUrlPerfil, serviceKeyPerfil, tokenPs);
+        if ('erro' in identPs) return res.status(401).json({ ok: false, erro: identPs.erro });
+        if (!identPs.isAdmin && identPs.bi !== biNorm) {
+          return res.status(403).json({ ok: false, erro: 'Sem autorização para alterar outro perfil.' });
+        }
         const cols: Record<string, string> = {};
         for (const col of PERFIL_COLUNAS_VALIDAS) {
           const v = String((campos as any)[col] ?? '').trim();
           if (v) cols[col] = v;
         }
+        // Role nunca é escrevível pelo titular (escalada de privilégio).
+        if (!identPs.isAdmin) delete (cols as Record<string, string>).role;
         if (cols.birth_date && /^\d{2}\/\d{2}\/\d{4}$/.test(cols.birth_date)) {
           const [d, m, y] = cols.birth_date.split('/');
           cols.birth_date = `${y}-${m}-${d}`;
@@ -4911,6 +4942,18 @@ async function dadosResolverEExecutar(opts: {
 
     if ((url.includes('/api/admin-cidadao') || url.includes('/api/admin-eliminar-cidadao')) && method === 'POST') {
       try {
+        // 2026-11-16 — GUARDA DE ADMINISTRAÇÃO: esta rota apaga em cascata o
+        // registo, o perfil, os pedidos, as notificações, os documentos e a
+        // própria conta Auth com a service role. Estava aberta: qualquer
+        // visitante podia eliminar definitivamente o cadastro de um cidadão.
+        if (!supaUrlPerfil || !serviceKeyPerfil) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+        const tokenAc = String(req.headers.authorization || (req.headers as any).Authorization || '').replace(/^Bearer\s+/i, '').trim();
+        if (!tokenAc) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+        const identAc = await dadosResolverIdentidade(supaUrlPerfil, serviceKeyPerfil, tokenAc);
+        if ('erro' in identAc) return res.status(401).json({ ok: false, erro: identAc.erro });
+        if (!identAc.isAdmin || identAc.demo) {
+          return res.status(403).json({ ok: false, erro: 'Apenas administradores autorizados.' });
+        }
         const { bi, email } = body || {};
         const biNorm = String(bi || '').trim().toUpperCase();
         const emailNorm = String(email || '').trim().toLowerCase();
@@ -5486,6 +5529,11 @@ async function dadosResolverEExecutar(opts: {
 
     // v37.78.10 — EMAIL DE BOAS-VINDAS no registo concluído (espelho do server.ts).
     if (url.includes('/api/enviar-email-boas-vindas') && method === 'POST') {
+      // 2026-11-16 — antiabuso: 5 envios por IP a cada 10 minutos.
+      if (!emailRateLimitOk(req)) {
+        res.setHeader('Retry-After', '600');
+        return res.status(429).json({ ok: false, erro: 'Demasiados pedidos de e-mail. Tente novamente mais tarde.' });
+      }
       try {
         const { nome, email, chaveAcesso, senha, area, link } = body || {};
         const para = String(email || '').trim().toLowerCase();
@@ -5536,6 +5584,11 @@ async function dadosResolverEExecutar(opts: {
 
     // EMAIL DE RECUPERAÇÃO DE PALAVRA-PASSE (Página Redefinir Senha — espelho do server.ts).
     if (url.includes('/api/enviar-email-recuperacao') && method === 'POST') {
+      // 2026-11-16 — antiabuso: 5 envios por IP a cada 10 minutos.
+      if (!emailRateLimitOk(req)) {
+        res.setHeader('Retry-After', '600');
+        return res.status(429).json({ ok: false, erro: 'Demasiados pedidos de e-mail. Tente novamente mais tarde.' });
+      }
       try {
         const { email, link } = body || {};
         const para = String(email || '').trim().toLowerCase();

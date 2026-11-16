@@ -315,6 +315,20 @@ async function startServer() {
   // QA-SEC-001 (auditoria 2026-09-22) — rate-limit em memória para leituras
   // ANÓNIMAS de perfil: 20 pedidos/minuto por IP (anti-enumeração de BIs).
   // Pedidos com sessão válida NÃO são limitados (a app hidrata em lote).
+
+// 2026-11-16 — LIMITADOR POR IP das rotas de e-mail público (boas-vindas,
+// recuperação). Sem isto, qualquer visitante podia usar a conta Resend da
+// plataforma para enviar correio em massa para o endereço que quisesse.
+const emailRlMap = new Map<string, { n: number; ate: number }>();
+const emailRateLimitOk = (req: any, max = 5, janelaMs = 10 * 60_000): boolean => {
+  const ip = String((req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'desconhecido');
+  const agora = Date.now();
+  if (emailRlMap.size > 5000) for (const [k, v] of emailRlMap) if (agora > v.ate) emailRlMap.delete(k);
+  const e = emailRlMap.get(ip);
+  if (!e || agora > e.ate) { emailRlMap.set(ip, { n: 1, ate: agora + janelaMs }); return true; }
+  e.n += 1;
+  return e.n <= max;
+};
   const PERFIL_RL_JANELA_MS = 60_000;
   const PERFIL_RL_MAX = 120;
   const perfilRL = new Map<string, { n: number; ate: number }>();
@@ -411,6 +425,19 @@ async function startServer() {
         return res.status(200).json({ ok: true, gravado: Object.keys(patch), agente: true });
       }
 
+      // 2026-11-16 — TITULARIDADE: sem isto qualquer visitante criava ou
+      // reescrevia a linha `profiles` de outro B.I. (inclusive uma com
+      // role='admin'), porque a escrita corre com a service role.
+      const supaUrlPs = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+      const serviceKeyPs = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+      if (!supaUrlPs || !serviceKeyPs) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+      const tokenPs = String(req.headers.authorization || req.headers.Authorization || '').replace(/^Bearer\s+/i, '').trim();
+      if (!tokenPs) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+      const identPs = await dadosResolverIdentidade(supaUrlPs, serviceKeyPs, tokenPs);
+      if ('erro' in identPs) return res.status(401).json({ ok: false, erro: identPs.erro });
+      if (!identPs.isAdmin && identPs.bi !== biNorm) {
+        return res.status(403).json({ ok: false, erro: 'Sem autorização para alterar outro perfil.' });
+      }
       const cols: Record<string, string> = {};
       for (const col of PERFIL_COLUNAS) {
         const v = String((campos as any)[col] ?? '').trim();
@@ -423,6 +450,8 @@ async function startServer() {
       } else if (cols.birth_date && !/^\d{4}-\d{2}-\d{2}$/.test(cols.birth_date)) {
         delete cols.birth_date;
       }
+      // Role nunca é escrevível pelo titular (escalada de privilégio): só admin.
+      if (!identPs.isAdmin) delete (cols as Record<string, string>).role;
       if (!Object.keys(cols).length) return res.status(400).json({ ok: false, erro: 'Nenhuma coluna válida para gravar.' });
       const { data: upd, error: updErr } = await admin.from('profiles').update(cols).eq('bi', biNorm).select('bi');
       if (updErr) return res.status(500).json({ ok: false, erro: updErr.message });
@@ -2394,6 +2423,11 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
   // deixado no registo. Provedor: Resend (RESEND_API_KEY no ambiente); sem a
   // chave responde 503 claro — o registo NUNCA é bloqueado por falha de email.
   app.post("/api/enviar-email-boas-vindas", async (req, res) => {
+    // 2026-11-16 — antiabuso: 5 envios por IP a cada 10 minutos.
+    if (!emailRateLimitOk(req)) {
+      res.setHeader('Retry-After', '600');
+      return res.status(429).json({ ok: false, erro: 'Demasiados pedidos de e-mail. Tente novamente mais tarde.' });
+    }
     try {
       const { nome, email, chaveAcesso, senha, area, link } = req.body || {};
       const para = String(email || '').trim().toLowerCase();
@@ -2451,6 +2485,11 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
   // Gera o link de recuperação oficial via Supabase Auth Admin REST API e
   // envia o email oficial com template do Correio Digital Angola via Resend.
   app.post("/api/enviar-email-recuperacao", async (req, res) => {
+    // 2026-11-16 — antiabuso: 5 envios por IP a cada 10 minutos.
+    if (!emailRateLimitOk(req)) {
+      res.setHeader('Retry-After', '600');
+      return res.status(429).json({ ok: false, erro: 'Demasiados pedidos de e-mail. Tente novamente mais tarde.' });
+    }
     try {
       const { email, link } = req.body || {};
       const para = String(email || '').trim().toLowerCase();
@@ -3210,6 +3249,12 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
   // automática por erro técnico. O servidor NÃO persiste imagens nem dados.
   // (Manter em sincronia com a rota equivalente em api/index.ts — produção Vercel.)
   app.post("/api/verificar-cadastro", async (req, res) => {
+    // 2026-11-16 — a pré-verificação consome créditos de visão por IA e é
+    // invocável sem sessão (passo público do registo): 10 por IP/10 min.
+    if (!emailRateLimitOk(req, 10, 10 * 60_000)) {
+      res.setHeader('Retry-After', '600');
+      return res.status(429).json({ ok: false, veredicto: 'REVISAO', alertas: ['limite'], motivo: 'Demasiados pedidos de verificação. Tente novamente mais tarde.' });
+    }
     const body = req.body;
     const pviResponderBase = (res: ExpressResponse, payload: unknown) => res.status(200).json(payload);
     type PviResponderFn = (veredicto: 'APTO' | 'REVISAO', alertas: string[], motivo: string) => unknown;
