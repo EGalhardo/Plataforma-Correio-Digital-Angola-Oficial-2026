@@ -10,6 +10,12 @@ export interface OfflineAction {
   payload?: { contact?: Contact; id?: number; [k: string]: unknown };
   timestamp: string;
   status: 'pending' | 'synced' | 'failed';
+  /** 2026-11-16 — tentativas de reenvio já feitas. Sem isto, uma acção que
+   *  falha repetidamente (ex.: destinatário inexistente) ficava na fila para
+   *  sempre sem o utilizador saber porquê. */
+  attempts?: number;
+  /** Último erro REAL devolvido pelo servidor (mostrado ao utilizador). */
+  lastError?: string;
 }
 
 export interface BackupData {
@@ -48,6 +54,15 @@ export class OfflineManager {
     localStorage.setItem(this.QUEUE_KEY, JSON.stringify(queue));
     this.createAutomaticBackup(); // Auto-backup on system changes
     return newAction;
+  }
+
+  /** 2026-11-16 — regista uma tentativa falhada com o erro real (para o
+   *  utilizador ver PORQUE é que a acção continua na fila). */
+  public static markFailed(actionId: string, erro: string): void {
+    const queue = this.getQueue().map((a) => a.id === actionId
+      ? { ...a, status: 'failed' as const, attempts: (a.attempts || 0) + 1, lastError: String(erro || '').slice(0, 200) }
+      : a);
+    this.setQueue(queue);
   }
 
   /**

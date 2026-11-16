@@ -2314,6 +2314,9 @@ export default function App() {
     documentHash: string;
     officialIssueDate: string;
     officialTime: string;
+    /** 2026-11-16 — anexos REALMENTE enviados. Antes o comprovativo inventava
+     *  um nome de ficheiro («<assunto>.pdf») mesmo sem anexo nenhum. */
+    anexos?: string[];
   } | null>(null);
   const [showSuccessDetails, setShowSuccessDetails] = useState(true);
   const [successModalCountdown, setSuccessModalCountdown] = useState<number>(5);
@@ -3183,8 +3186,19 @@ export default function App() {
     const consolidated = replayResult.consolidated;
     const failed = replayResult.failed;
 
-    OfflineManager.setQueue(remaining);
-    setOfflineQueue(remaining);
+    // 2026-11-16 — grava o motivo REAL de cada acção que não foi consolidada,
+    // para o painel da fila mostrar PORQUE continua pendente (antes ficava
+    // «pendente» para sempre, sem qualquer explicação ao utilizador).
+    for (const m of replayResult.motivos || []) OfflineManager.markFailed(m.id, m.motivo);
+    // markFailed altera apenas os campos de diagnóstico; a fila final é a
+    // devolvida pelo replay (consolidadas saem, restantes ficam).
+    OfflineManager.setQueue(
+      replayResult.remaining.map((a) => {
+        const diag = (replayResult.motivos || []).find((m) => m.id === a.id);
+        return diag ? { ...a, attempts: (a.attempts || 0) + 1, lastError: diag.motivo } : a;
+      }),
+    );
+    setOfflineQueue(OfflineManager.getQueue());
     OfflineManager.createAutomaticBackup();
 
     const truth = offlineSyncReportText(replayResult);
@@ -5397,6 +5411,7 @@ export default function App() {
           documentHash: protocoloLote.documentHash,
           officialIssueDate: protocoloLote.officialIssueDate || new Date().toLocaleDateString('pt-PT'),
           officialTime: protocoloLote.officialTime || new Date().toLocaleTimeString('pt-PT').substring(0, 5),
+          anexos: (composeData.attachments || []).slice(),
         });
       }
       notify(
@@ -9788,12 +9803,20 @@ Ficha civil do titular:
                   ) : (
                     <div className="max-h-32 overflow-y-auto space-y-1.5 border border-slate-100 bg-slate-50 rounded-2xl p-2.5">
                       {offlineQueue.map((item) => (
-                        <div key={item.id} className="p-2 bg-white rounded-lg border border-slate-150 flex items-center justify-between text-left font-sans">
-                          <div>
-                            <span className="text-[10px] font-bold text-slate-800 block uppercase font-mono">{item.type}</span>
-                            <span className="text-[9px] text-slate-400 block mt-0.5">{new Date(item.timestamp).toLocaleTimeString('pt-AO')}</span>
+                        <div key={item.id} className="p-2 bg-white rounded-lg border border-slate-150 text-left font-sans">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <span className="text-[10px] font-bold text-slate-800 block uppercase font-mono">{item.type}</span>
+                              <span className="text-[9px] text-slate-400 block mt-0.5">{new Date(item.timestamp).toLocaleTimeString('pt-AO')}</span>
+                            </div>
+                            <span className="text-[8px] bg-amber-100 border border-amber-200 text-amber-800 font-extrabold uppercase px-1.5 py-0.5 rounded-full font-mono shrink-0">Pendente</span>
                           </div>
-                          <span className="text-[8px] bg-amber-100 border border-amber-200 text-amber-800 font-extrabold uppercase px-1.5 py-0.5 rounded-full font-mono">Pendente</span>
+                          {/* 2026-11-16 — motivo REAL da pendência (antes: só «Pendente») */}
+                          {(item.lastError || item.attempts) ? (
+                            <p className="text-[8.5px] text-amber-800 bg-amber-50 border border-amber-100 rounded mt-1 px-1.5 py-1 leading-snug">
+                              {item.lastError || `Já tentado ${item.attempts}x sem confirmação do servidor.`}
+                            </p>
+                          ) : null}
                         </div>
                       ))}
                     </div>
@@ -9940,9 +9963,13 @@ Ficha civil do titular:
                         <span className="text-slate-700 font-extrabold truncate max-w-[170px] text-right" title={successProtocolModal.subject}>{successProtocolModal.subject}</span>
                       </div>
                       <div className="flex justify-between items-center border-b border-slate-100 pb-1">
-                        <span className="text-slate-400 font-black tracking-wider uppercase text-[7px]">FICHEIRO ANEXO:</span>
-                        <span className="text-slate-700 font-extrabold truncate max-w-[170px] text-right">
-                          {successProtocolModal.subject ? `${successProtocolModal.subject.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 20)}.pdf` : "comprovativo_oficial.pdf"}
+                        <span className="text-slate-400 font-black tracking-wider uppercase text-[7px]">FICHEIROS ANEXADOS:</span>
+                        <span className="text-slate-700 font-extrabold truncate max-w-[170px] text-right" title={(successProtocolModal.anexos || []).join(', ')}>
+                          {(successProtocolModal.anexos || []).length === 0
+                            ? 'Nenhum'
+                            : (successProtocolModal.anexos || []).length === 1
+                              ? (successProtocolModal.anexos || [])[0]
+                              : `${(successProtocolModal.anexos || []).length} ficheiros`}
                         </span>
                       </div>
                       <div className="flex justify-between items-center border-b border-slate-100 pb-1">

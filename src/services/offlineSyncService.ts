@@ -32,6 +32,9 @@ export interface OfflineReplayResult {
   failed: number;
   /** acções que ficam na fila (falhadas + sem replay implementado/legadas). */
   remaining: OfflineActionLike[];
+  /** 2026-11-16 — motivo REAL por acção que não foi consolidada, para o
+   *  utilizador saber o que fazer (antes ficava só «pendente» sem explicação). */
+  motivos: Array<{ id: string; tipo: string; motivo: string }>;
 }
 
 /** Tipos com replay implementado hoje (fonte única da verdade para o relatório). */
@@ -46,12 +49,14 @@ export async function replayOfflineQueue(
   actions: OfflineActionLike[],
 ): Promise<OfflineReplayResult> {
   const remaining: OfflineActionLike[] = [];
+  const motivos: Array<{ id: string; tipo: string; motivo: string }> = [];
   let consolidated = 0;
   let failed = 0;
 
   for (const action of actions || []) {
     if (!ops) {
       remaining.push(action);
+      motivos.push({ id: action.id, tipo: action.type, motivo: 'Sem sessão de nuvem — nada foi reenviado.' });
       continue;
     }
     try {
@@ -64,15 +69,29 @@ export async function replayOfflineQueue(
       } else {
         // Sem replay implementado (SEND_MESSAGE, SEND_DOCUMENT, EMIT_DOCUMENT,
         // CREATE_REQUEST…) ou payload legado insuficiente → fica na fila.
+        // 2026-11-16 — o reenvio de correspondência é recusado de propósito:
+        // a mensagem já pode ter chegado e ser reenviada em duplicado.
+        const motivo = action.type === 'SEND_MESSAGE' || action.type === 'SEND_DOCUMENT'
+          ? 'Mensagem não reenviada automaticamente (evita entrega em duplicado). Verifique «Enviadas» e reenvie manualmente se necessário.'
+          : action.type === 'EMIT_DOCUMENT'
+            ? 'Emissão de documento não repetida automaticamente. Confirme nos Documentos antes de emitir de novo.'
+            : action.type === 'CREATE_REQUEST'
+              ? 'Pedido não reenviado automaticamente. Registe-o novamente no serviço pretendido.'
+              : 'Acção sem reenvio automático disponível.';
         remaining.push(action);
+        motivos.push({ id: action.id, tipo: action.type, motivo });
       }
-    } catch {
+    } catch (e) {
       failed++;
       remaining.push(action);
+      motivos.push({
+        id: action.id, tipo: action.type,
+        motivo: `Falhou ao reenviar: ${String((e as Error)?.message || e).slice(0, 120)}. Fica na fila para nova tentativa.`,
+      });
     }
   }
 
-  return { consolidated, failed, remaining };
+  return { consolidated, failed, remaining, motivos };
 }
 
 /**
