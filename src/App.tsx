@@ -4893,12 +4893,19 @@ export default function App() {
     } else if (correspondenciaTab === "lidas") {
       base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id) && isMensagemLida(item));
     } else if (correspondenciaTab === "naoLidas") {
-      // 2026-11-13 — a lista «Não Lidas» é a MESMA fonte do badge da foto de
-      // perfil (unreadMessagesList = obterListaCorrespondenciasNaoLidas): tudo
-      // o que o badge conta (não lidas da caixa, notificações e ocorrências do
-      // servidor, com deduplicação) aparece aqui, com paridade 1:1. O dono
-      // exige: "todas as não lidas do badge devem aparecer em «Não Lidas»".
-      base = unreadMessagesList;
+      // 2026-11-16 — a aba «Não Lidas» passou a ser o COMPLEMENTO EXACTO de
+      // «Lidas» dentro de «Todas», e a terceira todas as três contam a mesma
+      // caixa:
+      //     Todas = Lidas + Não Lidas   (verificado em produção)
+      // Antes a lista vinha de `unreadMessagesList` — a fonte do SINO —, que
+      // acrescenta notificações de outros módulos e ocorrências do servidor.
+      // Isso fazia a aba anunciar um número e mostrar outra coisa (5 no
+      // contador contra 61 linhas na instituição, 7 contra 11 no cidadão).
+      // O sino continua a mostrar tudo; o Correio mostra o correio.
+      base = currentInbox.filter(item =>
+        !deletedMessageIds.includes(item.id) &&
+        !hiddenMessageIds.includes(item.id) &&
+        !isMensagemLida(item));
     } else {
       // 'todas' / padrão: TODAS as correspondências recebidas da conta (Lidas + Não Lidas)
       base = currentInbox.filter(item => !deletedMessageIds.includes(item.id) && !hiddenMessageIds.includes(item.id));
