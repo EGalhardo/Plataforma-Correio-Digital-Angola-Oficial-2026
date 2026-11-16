@@ -118,7 +118,10 @@ function executarFallbackLocal<T = any>(acao: string, data: Record<string, unkno
       return {
         ok: true,
         actor: detectCurrentActor(),
-        instituicoes: DEFAULT_INSTITUICOES
+        // 2026-11-16 — sem sessão não há lista real de destinos: devolver os
+        // exemplos fictícios (ENDE, EPAL, SME…) levava o utilizador a escolher
+        // instituições que a plataforma não tem, e o envio falhava com 403.
+        instituicoes: []
       } as unknown as T;
 
     case "listar": {

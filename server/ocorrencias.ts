@@ -208,6 +208,28 @@ async function occurrence(db: SupabaseClient, a: ActorOcorrencia, key: string) {
 async function institutions(db: SupabaseClient) {
   const result: any[] = [];
   const seen = new Set<string>();
+  // 2026-11-16 — a lista de destinos vinha SÓ da fila de registo, filtrando por
+  // `observacoes LIKE '%[INST:%'`. A instituição real (AGT-LMM) está na tabela
+  // `institutions` e a sua linha da fila já não traz esse marcador, por isso o
+  // cidadão via uma lista de destinos que o servidor depois recusava com 403
+  // («A instituição de destino não está habilitada»). A tabela `institutions`
+  // passa a ser a fonte principal (é o registo vivo, mantido pelo Admin).
+  try {
+    const vivas = checked(
+      await db.from('institutions').select('name,full_name,inst_code'),
+    ) as any[] | null;
+    for (const i of vivas || []) {
+      const codigo = String(i?.name || '').trim().toUpperCase();
+      if (!codigo || !/^[A-Z0-9][A-Z0-9-]{2,29}$/.test(codigo) || seen.has(codigo)) continue;
+      seen.add(codigo);
+      result.push({
+        codigo,
+        nome: String(i.full_name || i.name || codigo),
+        provincia: '',
+        municipio: '',
+      });
+    }
+  } catch { /* tabela ausente em ambientes antigos: segue só com a fila */ }
   for (let offset = 0; offset < 20000; offset += 500) {
     const rows =
       checked(
@@ -653,8 +675,9 @@ export async function handleOcorrencias(req: any, res: any) {
           const code = String(rpcRes.error.code || "");
           const msg = String(rpcRes.error.message || "");
           console.error("[server/ocorrencias] criar: RPC falhou", code, msg);
-          if (code === "22023") fail(400, msg || "Dados da ocorrência inválidos.");
+          if (code === "22023") fail(400, /institui/i.test(msg) ? `A instituição indicada não está habilitada na plataforma. Escolha uma das instituições sugeridas na lista.` : (msg || "Dados da ocorrência inválidos."));
           if (code === "42501") fail(403, msg || "Apenas o cidadão pode criar ocorrências.");
+          if (code === "23503" || /institui/i.test(msg)) fail(400, `A instituição indicada não está habilitada na plataforma. Escolha uma das instituições da lista (${msg.slice(0, 80)}).`);
           fail(500, "Não foi possível registar a ocorrência. Tente novamente.");
         }
         const createdOco: any = rpcRes.data;
