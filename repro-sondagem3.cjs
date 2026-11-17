@@ -1,0 +1,31 @@
+const { chromium }=require('playwright');
+const APP='https://correio-digital-angola-oficial.vercel.app';
+const E=m=>new Promise(r=>setTimeout(r,m));
+(async()=>{
+ const b=await chromium.launch();
+ const ctx=await b.newContext({viewport:{width:1400,height:950},locale:'pt-PT'});
+ const p=await ctx.newPage();
+ p.on('request',r=>{ const d=r.postData()||''; if(d.includes('sondagens')) console.log('  → PEDIDO',r.url().replace(APP,''),d.slice(0,300)); });
+ p.on('response',async r=>{ const t=await r.text().catch(()=>''); if(t.includes('sondagens')||/row-level|PGRST|ok":false/.test(t)) console.log('  ← RESPOSTA',r.status(),t.slice(0,300)); });
+ await p.goto(`${APP}/institucional/#/login`,{waitUntil:'networkidle'}); await E(1400);
+ await p.fill('input[name="cda-utilizador"]','AGT-LMM-01'); await p.fill('input[name="cda-senha"]','123456789');
+ await p.click('button:has-text("ENTRAR NO PORTAL")'); await E(7000);
+ await p.locator('button:has-text("Correio")').first().click(); await E(3000);
+ await p.locator('button:has-text("Nova Mensagem")').first().click(); await E(2500);
+ await p.locator('button:has-text("Criar Inquérito")').first().click(); await E(2000);
+ await p.locator('button:has-text("OK")').last().click(); await E(2500);
+ // preencher
+ const campos=p.locator('.fixed input[type="text"], .fixed textarea, [role="dialog"] input[type="text"]');
+ const inputs=p.locator('input[placeholder="Escreva a pergunta da sondagem"], input[placeholder*="pergunta" i]').first();
+ await inputs.fill('PROVA-PERGUNTA-'+Date.now().toString().slice(-4));
+ await p.locator('input[placeholder="Texto A"]').fill('Opção um');
+ await p.locator('input[placeholder="Texto B"]').fill('Opção dois');
+ await E(600);
+ await p.screenshot({path:'test-artifacts/sond-4-preenchido.png'});
+ await p.locator('button:has-text("CRIAR SONDAGEM")').click();
+ await E(5000);
+ const tela=(await p.evaluate(()=>document.body.innerText)).replace(/\s+/g,' ');
+ console.log('\nERRO NA TELA:', /row-level security/.test(tela)? '✗ «new row violates row-level security policy for table "sondagens"»' : tela.match(/[^.]{0,80}sondage[^.]{0,80}\./i)?.[0] || tela.slice(150,420));
+ await p.screenshot({path:'test-artifacts/sond-5-erro.png'});
+ await b.close();
+})();

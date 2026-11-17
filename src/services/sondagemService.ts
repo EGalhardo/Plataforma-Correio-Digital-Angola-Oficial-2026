@@ -210,23 +210,39 @@ export const criarRascunhoSondagem = async (params: {
     }
     const classif = await classificarInstituicao(params.codigo, params.nomeInstituicao);
     const classe: AbrangenciaSondagem = classif.ok && classif.dados ? classif.dados.classe : 'local';
-    const { data, error } = await supabase
-      .from('sondagens')
-      .insert({
-        instituicao_code: params.codigo,
-        instituicao_nome: params.nomeInstituicao,
-        pergunta: params.pergunta,
-        opcoes: params.opcoes,
-        permitir_varias: params.permitirVarias,
-        status: 'rascunho',
-        abrangencia: classe,
-        audiencia_total: 0,
-        criada_por: params.criadaPor,
-      })
-      .select()
-      .single();
-    if (error || !data) return { ok: false, motivo: 'erro', mensagem: (error as Error)?.message };
-    return { ok: true, dados: data as Sondagem };
+    // 2026-11-17 — a tabela «sondagens» tem RLS ligada e ZERO políticas: o
+    // INSERT directo do cliente era recusado com «new row violates row-level
+    // security policy for table "sondagens"» (42501) e criar um inquérito era
+    // impossível. Escrita pelo proxy /api/dados (service role, instituição
+    // injectada a partir do token). O insert directo fica só como recurso de
+    // último uso (modo sem proxy), onde o erro real é devolvido por inteiro.
+    const linha = {
+      instituicao_code: params.codigo,
+      instituicao_nome: params.nomeInstituicao,
+      pergunta: params.pergunta,
+      opcoes: params.opcoes,
+      permitir_varias: params.permitirVarias,
+      status: 'rascunho',
+      abrangencia: classe,
+      audiencia_total: 0,
+      criada_por: params.criadaPor,
+    };
+    const viaProxy = await gravarDados<Sondagem[]>(
+      'sondagens', 'insert', undefined, linha, { retorno: true },
+      async () => {
+        const { data } = await supabase.from('sondagens').insert(linha).select().single();
+        return data ? [data as Sondagem] : null;
+      },
+    );
+    const criada = Array.isArray(viaProxy) && viaProxy[0] ? (viaProxy[0] as Sondagem) : null;
+    if (!criada) {
+      const { error } = await supabase.from('sondagens').insert(linha).select().single();
+      return {
+        ok: false, motivo: 'erro',
+        mensagem: (error as Error)?.message || 'Não foi possível criar a sondagem.',
+      };
+    }
+    return { ok: true, dados: criada };
   } catch (e: unknown) {
     return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
   }
@@ -638,6 +654,14 @@ export const resultadosSondagem = async (sondagemId: number): Promise<SondagemRe
 
 export const encerrarSondagem = async (sondagemId: number): Promise<SondagemResultado<null>> => {
   try {
+    const viaProxy = await gravarDados<unknown>(
+      'sondagens', 'update', { id: sondagemId }, { status: 'encerrada' }, undefined,
+      async () => {
+        const { data } = await supabase.from('sondagens').update({ status: 'encerrada' }).eq('id', sondagemId).select();
+        return data as unknown;
+      },
+    );
+    if (viaProxy) return { ok: true, dados: null };
     const { error } = await supabase.from('sondagens').update({ status: 'encerrada' }).eq('id', sondagemId);
     if (error) return { ok: false, motivo: 'erro', mensagem: error.message };
     return { ok: true, dados: null };
@@ -649,10 +673,22 @@ export const encerrarSondagem = async (sondagemId: number): Promise<SondagemResu
 export const eliminarSondagem = async (sondagemId: number): Promise<SondagemResultado<null>> => {
   try {
     // 1. Apagar respostas associadas
-    try {
-      await supabase.from('sondagem_respostas').delete().eq('sondagem_id', sondagemId);
-    } catch {}
+    await gravarDados<unknown>(
+      'sondagem_respostas', 'delete', { sondagem_id: sondagemId }, undefined, undefined,
+      async () => {
+        const { data } = await supabase.from('sondagem_respostas').delete().eq('sondagem_id', sondagemId).select();
+        return data as unknown;
+      },
+    ).catch(() => null);
     // 2. Apagar o inquérito
+    const apagada = await gravarDados<unknown>(
+      'sondagens', 'delete', { id: sondagemId }, undefined, undefined,
+      async () => {
+        const { data } = await supabase.from('sondagens').delete().eq('id', sondagemId).select();
+        return data as unknown;
+      },
+    );
+    if (apagada) return { ok: true, dados: null };
     const { error } = await supabase.from('sondagens').delete().eq('id', sondagemId);
     if (error) {
       // Fallback para update de estado se delete direto for impedido por regras RLS
@@ -698,12 +734,29 @@ export const responderSondagem = async (
   escolhas: string[],
 ): Promise<SondagemResultado<null>> => {
   try {
+    // 2026-11-17 — mesma razão da criação: a escrita directa é bloqueada pela
+    // RLS. O voto vai pelo proxy (o BI é injectado a partir do token, nunca
+    // vem do cliente) e o upsert resolve o «já respondi» pelo par único.
+    const linha = {
+      sondagem_id: sondagemId,
+      cidadao_bi: bi,
+      escolhas,
+      updated_at: new Date().toISOString(),
+    };
+    const viaProxy = await gravarDados<unknown>(
+      'sondagem_respostas', 'insert', undefined, linha, { upsert: true, onConflict: 'sondagem_id,cidadao_bi' },
+      async () => {
+        const { data } = await supabase
+          .from('sondagem_respostas')
+          .upsert(linha, { onConflict: 'sondagem_id,cidadao_bi' })
+          .select();
+        return data as unknown;
+      },
+    );
+    if (viaProxy) return { ok: true, dados: null };
     const { error } = await supabase
       .from('sondagem_respostas')
-      .upsert(
-        { sondagem_id: sondagemId, cidadao_bi: bi, escolhas, updated_at: new Date().toISOString() },
-        { onConflict: 'sondagem_id,cidadao_bi' },
-      );
+      .upsert(linha, { onConflict: 'sondagem_id,cidadao_bi' });
     if (error) return { ok: false, motivo: 'erro', mensagem: error.message };
     return { ok: true, dados: null };
   } catch (e: unknown) {

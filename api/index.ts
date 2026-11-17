@@ -4233,6 +4233,17 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
 
 // Colunas permitidas por tabela (escrita); leitura devolve a linha completa.
 const DADOS_COLUNAS: Record<string, Record<string, boolean>> = {
+  // 2026-11-17 — sondagens / sondagem_respostas: o proxy precisa de conhecer as
+  // colunas (sanitização) para o INSERT vindo da instituição/cidadão passar.
+  sondagens: {
+    id: true, instituicao_code: true, instituicao_nome: true, pergunta: true,
+    opcoes: true, permitir_varias: true, status: true, abrangencia: true,
+    audiencia_total: true, criada_por: true, created_at: true, destinatarios: true,
+  },
+  sondagem_respostas: {
+    id: true, sondagem_id: true, cidadao_bi: true, escolhas: true,
+    created_at: true, updated_at: true,
+  },
   messages: {
     id: true, sender_bi: true, recipient_bi: true, org: true, preview: true, unread: true,
     status: true, subject: true, body: true, deadline_text: true, state_indicator: true,
@@ -4457,6 +4468,34 @@ const DADOS_TABELAS: Record<string, {
     escopo: () => ({ or: [], and: {} }),
     injetar: (_i, d) => d,
   },
+  // 2026-11-17 — SONDAGENS: a tabela tem RLS ligada e ZERO políticas, por isso
+  // o INSERT directo do cliente era recusado com
+  // «new row violates row-level security policy for table "sondagens"» (42501)
+  // e era impossível criar um inquérito/sondagem. Passa a usar o proxy
+  // (service role) com TITULARIDADE injectada: a instituição só cria/lê/edita
+  // as suas sondagens; o cidadão lê as ativas que lhe são dirigidas.
+  sondagens: {
+    select: true, insert: true, update: true, delete: true, upsert: false,
+    escopo: (i) => i.isAdmin ? { or: [], and: {} }
+      : i.isInst ? { or: [], and: { instituicao_code: i.instCode || i.bi } }
+      // cidadão: só sondagens já lançadas (nunca rascunhos) e ainda não encerradas
+      : { or: ['status.eq.ativa', 'status.eq.encerrada'], and: {} },
+    injetar: (i, d) => i.isAdmin ? d : i.isInst
+      ? { ...d, instituicao_code: i.instCode || i.bi }
+      : null, // cidadão nunca cria nem edita sondagens
+  },
+  // Respostas: o cidadão escreve/actualiza só as suas (cidadao_bi injectado);
+  // a instituição lê as do seu âmbito; admin vê tudo.
+  sondagem_respostas: {
+    select: true, insert: true, update: true, delete: false, upsert: true,
+    escopo: (i) => i.isAdmin ? { or: [], and: {} }
+      : i.isInst
+        ? { or: [], and: {} } // filtro por sondagem_id (ids da instituição) vem do cliente
+        : { or: [], and: { cidadao_bi: i.bi || '' } },
+    injetar: (i, d) => i.isAdmin ? d
+      : (!i.isInst && i.bi) ? { ...d, cidadao_bi: i.bi }
+      : null,
+  },
 };
 
 // Filtros de cliente: só colunas conhecidas; valores limitados.
@@ -4474,6 +4513,8 @@ function dadosSanitizarFiltros(tabela: string, filtros: any): Record<string, str
 const DADOS_JSONB: Record<string, Record<string, boolean>> = {
   inqueritos_ia: { guiao: true },
   inquerito_ia_respostas: { historico: true, campos: true },
+  // 2026-11-17 — sondagens (v36/v37): «opcoes» é JSONB estruturado.
+  sondagens: { opcoes: true },
 };
 
 function dadosSanitizarLinha(tabela: string, linha: any): Record<string, any> | null {
