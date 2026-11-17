@@ -7,7 +7,7 @@ import { ListaRolavel } from '../ui/ListaRolavel';
 // pergunta. Perguntas sem correspondência (difusão por âmbito) ficam em pasta
 // própria.
 // ============================================================================
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, BarChart3, ChevronDown, ChevronUp, Lock, Users, MessagesSquare, Loader2, ClipboardList, Bot, FolderOpen, Trash2 } from 'lucide-react';
 import { BotaoVoltar } from '../ui/BotaoVoltar';
 import { CdaConfirmModal } from '../ui/CdaConfirm';
@@ -26,7 +26,7 @@ import {
 } from '../../services/inqueritoIaService';
 import { InqueritoIaResultados } from './InqueritoIaResultados';
 import type { Message } from '../../types';
-import { agruparConversas, type Conversa } from '../../utils/conversasThread';
+import { agruparConversas, normalizarAssunto, type Conversa } from '../../utils/conversasThread';
 
 const CORES = ['#2563eb', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316', '#64748b', '#0c2340'];
 
@@ -43,6 +43,14 @@ interface Props {
   mensagensEnviadas?: Message[];
   /** v37.81 — Eliminação em cascata intra-conta: elimina correspondências associadas na conta ativa */
   onDeleteMessage?: (id: number) => void;
+  /**
+   * 2026-11-15 (pedido do dono) — inquérito a abrir em destaque, vindo do clique
+   * numa notificação («O cidadão X respondeu ao inquérito …»). Aceita o assunto
+   * citado na notificação ou o id do inquérito.
+   */
+  foco?: { assunto?: string; inqueritoId?: number; tipo?: 'normal' | 'ia'; em?: number } | null;
+  /** Limpa o destaque depois de consumido (o utilizador pode voltar a clicar). */
+  onFocoConsumido?: () => void;
 }
 
 interface Pasta<T> {
@@ -59,7 +67,7 @@ function dataConversa(c: Conversa): string {
   return c.representante.date || '';
 }
 
-export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sondagens', onBack, onCreate, novidadesNaoLidas = 0, onVerNotificacoes, mensagensEnviadas = [], onDeleteMessage }: Props) {
+export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sondagens', onBack, onCreate, novidadesNaoLidas = 0, onVerNotificacoes, mensagensEnviadas = [], onDeleteMessage, foco = null, onFocoConsumido }: Props) {
   const [disponivel, setDisponivel] = useState<boolean | null>(null);
   const [lista, setLista] = useState<Sondagem[]>([]);
   const [pastaAberta, setPastaAberta] = useState<string | null>(null);
@@ -136,6 +144,53 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
     return out;
   }, [listaIA, conversaPorIA]);
 
+  // ------------------------------------------------------------------
+  // 2026-11-15 (pedido do dono) — DESTAQUE vindo de uma notificação.
+  // A instituição recebia «O cidadão X respondeu ao inquérito … (Assunto)» e,
+  // ao clicar, aterrava na lista geral sem qualquer relação com o item. Aqui a
+  // pasta do inquérito citado é ABERTA automaticamente e a linha fica realçada.
+  // ------------------------------------------------------------------
+  const [destaqueChave, setDestaqueChave] = useState<string | null>(null);
+  const refDestaque = useRef<HTMLDivElement | null>(null);
+  // `carregarResultados` é declarado mais abaixo — o ref evita a dependência circular.
+  const carregarResultadosRef = useRef<((s: Sondagem) => Promise<void>) | null>(null);
+  const [focoAplicado, setFocoAplicado] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!foco || (!foco.assunto && !foco.inqueritoId)) return;
+    if (foco.em && focoAplicado === foco.em) return;
+    if (carregando) return;
+
+    const alvo = foco.assunto ? normalizarAssunto(foco.assunto) : '';
+    const casaAssunto = (s?: string) => {
+      const a = normalizarAssunto(s);
+      if (!alvo || a.length < 3) return false;
+      return a === alvo || a.includes(alvo) || alvo.includes(a);
+    };
+    const casaId = (id: number) => !!foco.inqueritoId && Number(foco.inqueritoId) === Number(id);
+
+    // pastas normais: correspondência com sondagens embutidas
+    const pastaNormal = pastas.find((p) =>
+      (p.conversa && casaAssunto(p.conversa.assunto)) || p.itens.some((i) => casaId(i.id)));
+    const pastaIA = pastasIA.find((p) =>
+      (p.conversa && casaAssunto(p.conversa.assunto)) || p.itens.some((i) => casaId(i.id)));
+
+    const pasta = foco.tipo === 'ia' ? pastaIA : (pastaNormal || pastaIA);
+    if (!pasta) { setFocoAplicado(foco.em || Date.now()); onFocoConsumido?.(); return; }
+
+    setAba(foco.tipo === 'ia' || !pastaNormal ? 'ia' : 'normal');
+    setPastaAberta(pasta.chave);
+    setDestaqueChave(pasta.chave);
+    setFocoAplicado(foco.em || Date.now());
+    onFocoConsumido?.();
+
+    // resultados das perguntas da pasta em destaque (o utilizador vê a resposta já registada)
+    setTimeout(() => {
+      for (const item of (pasta as Pasta<Sondagem | InqueritoIA>).itens) void carregarResultadosRef.current?.(item as Sondagem);
+      refDestaque.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 260);
+  }, [foco, carregando, pastas, pastasIA, focoAplicado, onFocoConsumido]);
+
   const carregarResultados = useCallback(async (s: Sondagem) => {
     const r = await resultadosSondagem(s.id);
     if (!r.ok) return;
@@ -149,6 +204,8 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
       };
     });
   }, []);
+
+  carregarResultadosRef.current = carregarResultados;
 
   const abrirPasta = (p: Pasta<Sondagem>) => {
     if (pastaAberta === p.chave) { setPastaAberta(null); return; }
@@ -296,7 +353,13 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
         const aberta = pastaAberta === p.chave;
         const titulo = p.conversa ? p.conversa.assunto : (p.itens[0]?.guiao?.objectivo || p.itens[0]?.o_que_pretende_saber || 'Inquérito com IA');
         return (
-          <div key={p.chave} className="rounded-2xl border border-indigo-100 bg-white shadow-sm overflow-hidden" data-testid="inquerito-ia-pasta">
+          <div
+            key={p.chave}
+            ref={destaqueChave === p.chave ? refDestaque : undefined}
+            data-destaque={destaqueChave === p.chave ? 'sim' : undefined}
+            className={`rounded-2xl border bg-white shadow-sm overflow-hidden ${destaqueChave === p.chave ? 'border-indigo-500 ring-2 ring-indigo-300/60' : 'border-indigo-100'}`}
+            data-testid="inquerito-ia-pasta"
+          >
             <button
               type="button"
               onClick={() => setPastaAberta(aberta ? null : p.chave)}
@@ -380,7 +443,13 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
         const unica = !p.conversa && p.itens.length === 1;
         const titulo = p.conversa ? p.conversa.assunto : p.itens[0].pergunta;
         return (
-          <div key={p.chave} className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden" data-testid="sondagem-pasta">
+          <div
+            key={p.chave}
+            ref={destaqueChave === p.chave ? refDestaque : undefined}
+            data-destaque={destaqueChave === p.chave ? 'sim' : undefined}
+            className={`rounded-2xl border bg-white shadow-sm overflow-hidden ${destaqueChave === p.chave ? 'border-primary ring-2 ring-primary/30' : 'border-slate-200'}`}
+            data-testid="sondagem-pasta"
+          >
             <button
               type="button"
               onClick={() => abrirPasta(p)}

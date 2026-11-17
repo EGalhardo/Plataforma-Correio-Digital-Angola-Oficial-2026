@@ -5,7 +5,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mic, Globe, ChevronDown, Check, Sun, Moon, LogOut } from 'lucide-react';
+import { Mic, Globe, ChevronDown, Check, Sun, Moon, LogOut, Bell, ChevronRight } from 'lucide-react';
 import { useSession } from '../../services/sessionStore';
 import { AppNotification, AppMode, LanguageCode, LANGUAGE_OPTIONS, Message, PendingRegistration } from '../../types';
 import { useLanguage } from '../../hooks/useLanguage';
@@ -25,6 +25,9 @@ interface HeaderProps {
   stopIaVoice: () => void;
   /** Mantido por compatibilidade (o Centro de Notificações lê-as do App). */
   notifications?: AppNotification[];
+  /** 2026-11-15 — abrir a notificação clicada (leva à página/item respectivo). */
+  onOpenNotification?: (n: AppNotification) => void;
+  onOpenNotificationCenter?: () => void;
   showNotifications: boolean;
   setShowNotifications: (show: boolean) => void;
   userProfilePhoto?: string;
@@ -66,7 +69,10 @@ function UnreadMessagesMenu({
   onOpenMessage,
   onOpenPendingRegistration,
   onLogout,
-  translate
+  translate,
+  notifications = [],
+  onOpenNotification,
+  onOpenNotificationCenter
 }: {
   open: boolean;
   onClose: () => void;
@@ -77,6 +83,10 @@ function UnreadMessagesMenu({
   onOpenPendingRegistration?: (r: PendingRegistration) => void;
   onLogout?: (clearAll?: boolean) => void;
   translate: (key: string) => string;
+  /** 2026-11-15 — notificações clicáveis no menu (pedido do dono). */
+  notifications?: AppNotification[];
+  onOpenNotification?: (n: AppNotification) => void;
+  onOpenNotificationCenter?: () => void;
 }) {
   if (!open) return null;
 
@@ -159,6 +169,44 @@ function UnreadMessagesMenu({
             })
           )}
         </div>
+        {notifications.length > 0 && (
+          <div className="border-t border-slate-100">
+            <div className="px-4 py-2 bg-slate-50/70 flex items-center justify-between">
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">
+                {translate("Notificações")}
+              </span>
+              <span data-testid="menu-notificacoes-contador" className="text-[9px] font-black text-white bg-[#0E2B64] rounded-full min-w-[16px] h-[16px] px-1 flex items-center justify-center leading-none">
+                {notifications.length}
+              </span>
+            </div>
+            <div className="max-h-[190px] overflow-y-auto custom-scrollbar divide-y divide-slate-50" data-testid="menu-notificacoes">
+              {notifications.slice(0, 6).map((n) => (
+                <button
+                  key={`notif-${n.id}`}
+                  type="button"
+                  data-testid="menu-item-notificacao"
+                  onClick={() => { onOpenNotification?.(n); onClose(); }}
+                  className="w-full text-left px-4 py-2.5 hover:bg-blue-50/60 transition-colors cursor-pointer flex items-start gap-2.5"
+                >
+                  <Bell size={12} className="mt-0.5 shrink-0 text-[#0E2B64]" />
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[10px] font-black uppercase tracking-wide text-slate-800 truncate">{translate(n.title)}</span>
+                    <span className="block text-[10.5px] font-semibold text-slate-500 line-clamp-2 leading-snug">{translate(n.message)}</span>
+                  </span>
+                  <ChevronRight size={12} className="mt-0.5 shrink-0 text-slate-300" />
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              data-testid="menu-ver-centro-notificacoes"
+              onClick={() => { onClose(); onOpenNotificationCenter?.(); }}
+              className="w-full px-4 py-2 text-[9px] font-black uppercase tracking-widest text-primary hover:bg-blue-50/60 transition-colors cursor-pointer border-t border-slate-100"
+            >
+              {translate("Ver Centro de Notificações")}
+            </button>
+          </div>
+        )}
         <div className="p-2.5 bg-slate-50/80 border-t border-slate-100 flex flex-col gap-1.5">
           <button
             type="button"
@@ -285,6 +333,9 @@ export function Header({
   onOpenUnreadMessage,
   pendingRegistrations = [],
   onOpenPendingRegistration,
+  onOpenNotification,
+  onOpenNotificationCenter,
+  notifications = [],
   citizenOnlineTone = null,
   chatAssistantRecognitionRef,
   handleLogout
@@ -557,6 +608,9 @@ export function Header({
               onOpenPendingRegistration={onOpenPendingRegistration}
               onLogout={handleLogout}
               translate={translate}
+              notifications={notifications}
+              onOpenNotification={onOpenNotification}
+              onOpenNotificationCenter={onOpenNotificationCenter}
             />
             <NotificationDropdown />
           </div>
@@ -733,6 +787,9 @@ export function Header({
               onOpenPendingRegistration={onOpenPendingRegistration}
               onLogout={handleLogout}
               translate={translate}
+              notifications={notifications}
+              onOpenNotification={onOpenNotification}
+              onOpenNotificationCenter={onOpenNotificationCenter}
             />
             <NotificationDropdown />
           </div>

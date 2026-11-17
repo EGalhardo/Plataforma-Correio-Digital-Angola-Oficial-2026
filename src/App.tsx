@@ -91,6 +91,8 @@ import { ordenarMensagensPorMaisRecente, ordenarCorrespondenciasPorMaisRecente }
 import { agruparConversas, conversaDe, resumoDestinatarios } from './utils/conversasThread';
 import { PainelConversa } from './components/features/PainelConversa';
 import { contarNotificacoesAtalhos, assuntoChave, normalizarTexto, obterListaCorrespondenciasNaoLidas, contarPorCategoria, itemNotificacaoOcorrencia, isMensagemLida, isMensagemNaoLida } from './utils/notificacoesAtalhos';
+import { notificacaoPertenceAoDono } from './utils/notificacaoDono';
+import { resolverDestinoNotificacao, assuntoCitado } from './utils/resolverNotificacao';
 import { ocorrenciasApi } from './features/ocorrencias/client';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, codigoInstituicaoDeConta, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode, eliminarCorrespondenciaTotal, lerMensagemParaEliminacao, listarRegistosPendentes, EVENTO_REGISTOS_ALTERADOS } from './services/supabaseService';
 import { ehAssuntoDenuncia, ehAssuntoNovaDenuncia, ehAssuntoQualquerDenuncia, estadoDeFase, codigoInstituicaoBase } from './services/denunciaCore';
@@ -239,6 +241,10 @@ const ContactsContent = lazyPainel(() => import('./components/features/ContactsC
 const DocumentDetail = lazyPainel(() => import('./components/features/DocumentDetail').then(m => ({ default: m.DocumentDetail })));
 const ActivityCenterContent = lazyPainel(() => import('./components/features/ActivityCenterContent').then(m => ({ default: m.ActivityCenterContent })));
 const NotificationsCenterContent = lazyPainel(() => import('./components/features/NotificationsCenterContent').then(m => ({ default: m.NotificationsCenterContent })));
+// 2026-11-15 — página do Centro de Notificações com pré-selecção do item clicado
+// (pedido do dono: clicar numa notificação deve abrir a respectiva página/item).
+const NotificationsPageContent = lazyPainel(() => import('./components/features/NotificationsPageContent').then(m => ({ default: m.NotificationsPageContent })));
+import type { FocoNotificacao } from './components/features/NotificationsPageContent';
 const GovEmissaoContent = lazyPainel(() => import('./components/features/GovEmissaoContent').then(m => ({ default: m.GovEmissaoContent })));
 const GovDocsContent = lazyPainel(() => import('./components/features/GovDocsContent').then(m => ({ default: m.GovDocsContent })));
 const GovPerfilContent = lazyPainel(() => import('./components/features/GovPerfilContent').then(m => ({ default: m.GovPerfilContent })));
@@ -2309,6 +2315,8 @@ export default function App() {
   const [showSensitiveData, setShowSensitiveData] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [activeNotificationModal, setActiveNotificationModal] = useState<AppNotification | null>(null);
+  // 2026-11-15 — notificação clicada: o Centro de Notificações abre-a em destaque.
+  const [focoNotificacao, setFocoNotificacao] = useState<FocoNotificacao | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Offline and Local Caching states
@@ -4752,7 +4760,15 @@ export default function App() {
   const currentNotifications = useMemo(() => {
     let base: AppNotification[];
     if (!isDemoSession) {
-      base = notifications.filter(n => n.ownerId === sessionOwnerKey);
+      // 2026-11-15 — DEFEITO CORRIGIDO (relatado pelo dono: «a instituição só vê
+      // uma notificação / não consegue clicar»). A comparação era de igualdade
+      // EXACTA: as notificações de resposta a inquérito são gravadas com o código
+      // SIGLA da mensagem ('AGT-LMM'), mas a sessão usa a chave canónica
+      // ('AGT-LMM-01'), por isso a linha era descartada antes de chegar ao ecrã.
+      // Passa a valer a família de chaves do próprio titular (mesma regra da
+      // leitura da nuvem) — sem alargar notificações a estranhos.
+      base = notifications.filter(n =>
+        notificacaoPertenceAoDono(n.ownerId, sessionOwnerKey, isUserMode));
     } else {
       if (isUserMode) {
         base = notifications.filter(n => !n.ownerId || n.ownerId === sessionOwnerKey || n.ownerId === DEMO_CREDENTIALS.user.identifier);
@@ -5220,6 +5236,21 @@ export default function App() {
    * Só abre quando a pergunta contém termos específicos de conteúdo — pedidos
    * genéricos ("mostra as mensagens") devolvem false e caem na navegação normal.
    */
+  // 2026-11-15 (pedido do dono) — UM só ponto de decisão para clicar numa
+  // notificação, usado pelo menu da foto, pelo dropdown do sino e pelo Centro:
+  //  1. notificação ligada a uma correspondência (vínculo gravado ou assunto
+  //     citado) → abre essa correspondência;
+  //  2. caso contrário → abre a página indicada com o item em destaque.
+  const abrirNotificacao = useCallback((n: AppNotification) => {
+    const destino = resolverDestinoNotificacao(n, [...currentSentMessages, ...currentInbox]);
+    setNotifications((prev) => prev.map((item) => (item.id === n.id ? { ...item, unread: false } : item)));
+    if (!isDemoSession && n.id) void supabaseService.markNotificationRead(n.id);
+    setShowNotifications(false);
+    if (destino.mensagem) { handleSelectMessage(destino.mensagem); return; }
+    setFocoNotificacao({ id: n.id, titulo: n.title, mensagem: n.message, tipo: String(n.type || 'info'), em: Date.now() });
+    setTab(destino.pagina || 'notificacoes');
+  }, [currentSentMessages, currentInbox, isDemoSession, handleSelectMessage]);
+
   const abrirCorrespondenciaPorVoz = (query: string): boolean => {
     const q = String(query || '').toLowerCase().trim();
     if (q.length < 3) return false;
@@ -7127,12 +7158,14 @@ Ficha civil do titular:
         );
       case 'notificacoes':
         return (
-          <NotificationsCenterContent
+          <NotificationsPageContent
             notifications={currentNotifications}
             setTab={setTab}
             appMode={appMode}
             messages={[...currentSentMessages, ...currentInbox]}
             onOpenMessage={handleSelectMessage}
+            foco={focoNotificacao}
+            onLimparFoco={() => setFocoNotificacao(null)}
           />
         );
       case 'inst-qrcode':
@@ -7174,6 +7207,10 @@ Ficha civil do titular:
               novidadesNaoLidas={badgeCounts.inqueritos}
               onVerNotificacoes={() => setTab('notificacoes')}
               onDeleteMessage={handleDeleteMessage}
+              // 2026-11-15 — clique na notificação «O cidadão respondeu ao
+              // inquérito …» abre aqui o inquérito correspondente em destaque.
+              foco={focoNotificacao ? { assunto: assuntoCitado(focoNotificacao.mensagem), em: focoNotificacao.em } : null}
+              onFocoConsumido={() => { /* o destaque mantém-se enquanto o utilizador não sair */ }}
             />
           </PainelSuspense>
         );
@@ -9627,6 +9664,8 @@ Ficha civil do titular:
             onOpenUnreadMessage={handleOpenUnreadMessage}
             pendingRegistrations={pendingRegistrations}
             onOpenPendingRegistration={handleOpenPendingRegistration}
+            onOpenNotification={abrirNotificacao}
+            onOpenNotificationCenter={() => { setShowNotifications(false); setTab('notificacoes'); }}
             handleLogout={handleLogout}
             citizenOnlineTone={isInstMode ? institutionOnlineTone : citizenOnlineTone}
             chatAssistantRecognitionRef={chatAssistantRecognitionRef} // Repassar ref do reconhecimento de voz
@@ -9637,57 +9676,7 @@ Ficha civil do titular:
                 notifications={currentNotifications} 
                 setTab={setTab} 
                 setSelectedDoc={setSelectedDoc} 
-                onClickNotification={(n) => {
-                  const norm = (s: string) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-                  const subjFromMsg = (n.message || '').match(/\(([^)]+)\)/)?.[1] || '';
-                  const cleanSubjFromMsg = norm(subjFromMsg).replace(/^\[[^\]]*\]\s*/, '');
-                  const itemText = norm(`${n.title || ''} ${n.message || ''}`);
-                  const isCronogramaNotif = n.title?.includes('Reclamação') || n.title?.includes('Denúncia') || n.title?.includes('Denuncia') || n.targetTab === 'mensagem';
-
-                  let allCandidates = [ ...currentSentMessages, ...currentInbox ];
-                  try {
-                    const rawInbox = JSON.parse(localStorage.getItem('correio_digital_inbox') || '[]');
-                    const rawSent = JSON.parse(localStorage.getItem('correio_digital_sent') || '[]');
-                    allCandidates = [...allCandidates, ...rawInbox, ...rawSent];
-                  } catch {}
-
-                  const matchingMsg = allCandidates.find(m => {
-                    const subjM = norm(m.details?.subject || (m as any).subject || m.preview || '');
-                    const cleanSubjM = subjM.replace(/^\[[^\]]*\]\s*/, '');
-                    if (cleanSubjFromMsg && cleanSubjM && (cleanSubjM.includes(cleanSubjFromMsg) || cleanSubjFromMsg.includes(cleanSubjM))) return true;
-                    if (subjFromMsg && (subjM.includes(norm(subjFromMsg)) || norm(subjFromMsg).includes(subjM))) return true;
-                    if (cleanSubjM.length >= 4 && itemText.includes(cleanSubjM)) return true;
-                    if (subjM.length >= 4 && itemText.includes(subjM)) return true;
-                    return false;
-                  }) || (isCronogramaNotif ? allCandidates.find(m => {
-                    const subjM = norm(m.details?.subject || (m as any).subject || m.preview || '');
-                    return subjM.startsWith('[reclamacao]') || subjM.startsWith('[denuncia]') || subjM.startsWith('[registo de denuncia]');
-                  }) : null);
-
-                  if (matchingMsg && isCronogramaNotif) {
-                    handleSelectMessage(matchingMsg);
-                    setNotifications((prev) =>
-                      prev.map((item) => item.id === n.id ? { ...item, unread: false } : item)
-                    );
-                    if (!isDemoSession && n.id) {
-                      void supabaseService.markNotificationRead(n.id);
-                    }
-                    setShowNotifications(false);
-                    return;
-                  }
-
-                  setActiveNotificationModal(n);
-                  setNotifications((prev) =>
-                    prev.map((item) => item.id === n.id ? { ...item, unread: false } : item)
-                  );
-                  // 2026-08-22 — o estado "lida" é persistido na nuvem
-                  // (read_at) e a notificação CONTINUA VISÍVEL no dropdown
-                  // (secção "Lidas") até ao dia do agendamento passar.
-                  if (!isDemoSession && n.id) {
-                    void supabaseService.markNotificationRead(n.id);
-                  }
-                  setShowNotifications(false);
-                }}
+                onClickNotification={abrirNotificacao}
                 onDeleteNotification={(id) => {
                   setNotifications((prev) => prev.filter((item) => item.id !== id));
                 }}

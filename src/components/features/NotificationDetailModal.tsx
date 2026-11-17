@@ -12,6 +12,7 @@ import { useLanguage } from '../../hooks/useLanguage';
 interface NotificationDetailModalProps {
   notification: AppNotification | null;
   onClose: () => void;
+  /** 2026-11-15 — leva ao destino real (correspondência ou página) da notificação. */
   onNavigateToTab?: (tab: string) => void;
 }
 
@@ -139,9 +140,12 @@ export function NotificationDetailModal({
             <button
               type="button"
               onClick={() => {
+                // 2026-11-15 — o modal leva ao destino resolvido (a mesma regra do
+                // clique directo na notificação); antes só mudava de separador.
+                const alvo = notification.targetTab;
                 onClose();
                 if (onNavigateToTab) {
-                  onNavigateToTab(notification.targetTab);
+                  onNavigateToTab(alvo);
                 }
               }}
               className="w-full py-3.5 bg-[#070b19] text-white hover:bg-[#121c3b] font-black text-[11px] md:text-xs uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center gap-1.5 cursor-pointer border-0 shadow-sm"

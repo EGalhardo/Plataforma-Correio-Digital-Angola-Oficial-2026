@@ -1,0 +1,20 @@
+const { chromium } = require('playwright');
+const APP='https://correio-digital-angola-oficial.vercel.app';
+const E=ms=>new Promise(r=>setTimeout(r,ms));
+(async()=>{
+  const b=await chromium.launch();
+  const ctx=await b.newContext({viewport:{width:1400,height:1250},locale:'pt-PT'});
+  const p=await ctx.newPage();
+  p.on('console',m=>{ if(m.type()==='error') console.log('  [console error]', m.text().slice(0,160)); });
+  await p.goto(`${APP}/#/login`,{waitUntil:'networkidle'}); await E(1400);
+  await p.fill('input[name="cda-utilizador"]','AGT-LMM-01'); await p.fill('input[name="cda-senha"]','123456789');
+  await p.click('button:has-text("ENTRAR NO PORTAL")'); await E(9000);
+  const t0=(await p.evaluate(()=>document.body.innerText)).replace(/\s+/g,' ');
+  console.log('sino visível?', await p.locator('[aria-label="Menu de Perfil e Notificações"]').count());
+  await p.locator('[aria-label="Menu de Perfil e Notificações"]').click(); await E(1500);
+  const menu=(await p.evaluate(()=>document.body.innerText)).replace(/\s+/g,' ');
+  console.log('menu aberto?', /Correspondências Não Lidas|Registos por Homologar/i.test(menu));
+  console.log('menu texto:', menu.slice(0,400));
+  await p.screenshot({path:'test-artifacts/diag-clique-inst.png'});
+  await b.close();
+})();
