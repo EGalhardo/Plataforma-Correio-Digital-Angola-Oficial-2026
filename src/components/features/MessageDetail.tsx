@@ -3428,6 +3428,28 @@ depende de integração futura com a infra-estrutura de chaves nacional.
         </div>
       )}
 
+      {/* 2026-11-17 — SONDAGEM NA VISTA PRINCIPAL: o cartão de resposta só
+          existia nas vistas secundárias («Ver detalhes» / conteúdo completo).
+          O cidadão abria a mensagem que trazia a sondagem e via apenas o QR —
+          o «Responder» pedia escolhas que não tinha onde fazer. Aqui o cartão
+          aparece logo no topo, antes do protocolo. */}
+      {cidadaoBi && idsSondagem.length > 0 && (
+        <div className="space-y-3 print:hidden">
+          {idsSondagem.map((sid) => (
+            <React.Fragment key={`sond-top-${sid}`}>
+              <SondagemResponderCard
+                sondagemId={Number(sid)}
+                cidadaoBi={cidadaoBi}
+                escolhas={respSond[Number(sid)]?.escolhas || []}
+                onEscolhas={(ids) => mudarEscolhaSondagem(Number(sid), ids)}
+                registada={!!respSond[Number(sid)]?.registada}
+                onCarregar={(s, existente) => carregarSondagemCidadao(Number(sid), s, existente)}
+              />
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+
       {/* 2026-09-12 — o cartão superior «QR Code de Localização» foi removido:
           a página passa a ter UM único QR (o cartão «QR Code de Localização»
           da grelha do protocolo, mais abaixo), que absorveu «Copiar ligação». */}
