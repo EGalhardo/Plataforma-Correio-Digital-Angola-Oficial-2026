@@ -67,6 +67,66 @@ const getRuntimeFlags = () => ({
 const webrtcRoomMessages = new Map<string, Array<{ id: number; sender: string; timestamp: number; payload: any }>>();
 let webrtcMsgCounter = 0;
 
+/**
+ * 2026-11-16 — PORQUE É QUE A CHAMADA SÓ LIGAVA METADE DAS VEZES.
+ *
+ * Medido em produção com duas contas reais: a mensagem de sinalização
+ * (oferta/resposta/candidato) chegava a **1 em cada 3** pedidos de
+ * /api/webrtc/poll. O `Map` acima vive na memória de UMA instância
+ * serverless; a função é servida por várias instâncias e cada pedido pode
+ * cair numa diferente — a instância que guardou a oferta não é a mesma que
+ * responde ao poll. Resultado: metade das chamadas ficava em «Aguardar
+ * Participante», sem qualquer erro (o pior tipo de falha).
+ *
+ * Solução: transporte DURÁVEL no Supabase (postgres). A tabela `cda_webrtc_signal`
+ * já tem RLS activo mas SEM políticas → só a service role (servidor) lê e
+ * escreve; as mensagens são efémeras e apagadas ao fim de 2 minutos. Se o
+ * Supabase não estiver configurado, o Map continua a servir de recurso.
+ */
+async function webrtcSinalGuardar(room: string, sender: string, tipo: string, payload: any): Promise<boolean> {
+  const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+  const chave = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+  if (!url || !chave) return false;
+  try {
+    const r = await fetch(`${url}/rest/v1/cda_webrtc_signal`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: chave,
+        Authorization: `Bearer ${chave}`,
+        Prefer: 'return=minimal',
+      },
+      body: JSON.stringify({ room, sender, tipo, payload }),
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function webrtcSinalLer(room: string, sender: string, desde: string): Promise<any[]> {
+  const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+  const chave = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+  if (!url || !chave) return [];
+  try {
+    const corte = new Date(Date.now() - 3000).toISOString(); // sobreposição de 3 s
+    const desdeFinal = desde && desde > corte ? desde : corte;
+    const q = `${url}/rest/v1/cda_webrtc_signal?select=payload,criado_em,sender&room=eq.${encodeURIComponent(room)}`
+      + `&sender=neq.${encodeURIComponent(sender)}&criado_em=gte.${encodeURIComponent(desdeFinal)}&order=criado_em.asc&limit=300`;
+    const r = await fetch(q, {
+      headers: { apikey: chave, Authorization: `Bearer ${chave}` },
+    });
+    if (!r.ok) return [];
+    const linhas = await r.json();
+    if (!Array.isArray(linhas)) return [];
+    return linhas
+      .filter((l) => l && l.payload)
+      .map((l) => ({ ...l.payload, _sigts: new Date(l.criado_em).getTime() }));
+  } catch {
+    return [];
+  }
+}
+
 // Limpa caracteres especiais/markdown das respostas da IA (2026-08-18).
 // Remove # * _ ` ~ > e formatação markdown, preservando pontuação, números,
 // acentos e termos úteis (Kz, %, etc.). Aplicada a TODAS as respostas IA.
@@ -1823,6 +1883,8 @@ export default async function handler(req: any, res: any) {
         if (list.length > 100) {
           list.splice(0, list.length - 100);
         }
+        // 2026-11-16 — transporte durável (todas as instâncias vêem).
+        await webrtcSinalGuardar(cleanRoom, String(sender), String(msg.payload.type || ''), msg.payload);
         return res.status(200).json({ ok: true, id: msg.id });
       } catch (err: any) {
         return res.status(500).json({ error: err?.message || 'Signal failed' });
@@ -1860,8 +1922,24 @@ export default async function handler(req: any, res: any) {
             .map(m => ({ ...m.payload, _sigts: m.timestamp }));
         }
 
+        // 2026-11-16 — juntar o que veio da memória desta instância com o que
+        // está gravado no Supabase (durável). Deduplicar por conteúdo para
+        // não entregar a mesma mensagem duas vezes.
+        let duraveis: any[] = [];
+        try {
+          const desdeIso = sinceTsRaw ? new Date(Number(sinceTsRaw) - 1000).toISOString() : '';
+          duraveis = await webrtcSinalLer(room, sender, desdeIso);
+        } catch { duraveis = []; }
+        if (duraveis.length > 0) {
+          const jaTem = new Set(messages.map((m: any) => `${m.sender}|${m.type}|${JSON.stringify(m.type === 'candidate' ? m.candidate : (m.offer || m.answer || m.name || ''))}`));
+          for (const d of duraveis) {
+            const k = `${d.sender}|${d.type}|${JSON.stringify(d.type === 'candidate' ? d.candidate : (d.offer || d.answer || d.name || ''))}`;
+            if (!jaTem.has(k)) { messages.push(d); jaTem.add(k); }
+          }
+        }
+
         const latestId = list.length > 0 ? list[list.length - 1].id : since;
-        return res.status(200).json({ ok: true, latestId, messages });
+        return res.status(200).json({ ok: true, latestId, messages, durable: duraveis.length });
       } catch (err: any) {
         return res.status(500).json({ error: err?.message || 'Poll failed' });
       }

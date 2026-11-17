@@ -247,7 +247,15 @@ export function WebRTCVideoCallRoom({
   }, [isVideoOn]);
 
   // Send signaling message through all available channels
-  const sendSignal = useCallback((payload: any) => {
+  // 2026-11-16 — REDE DE SEGURANÇA DA SINALIZAÇÃO.
+  // Com o transporte durável (Supabase) a entrega passou a ser fiável, mas
+  // uma chamada que NÃO liga não pode ficar à espera para sempre: quem
+  // oferece guarda a última oferta e repete-a a cada 4 s (até 4 vezes) até
+  // chegar resposta. Antes, uma oferta perdida = chamada morta em silêncio.
+  const ultimaOfertaRef = useRef<{ offer: any; target: string } | null>(null);
+  const ofertaTentativasRef = useRef(0);
+
+  const enviarSinalCru = useCallback((payload: any) => {
     const { roomName: currentRoom } = propsRef.current;
     const cleanRoom = currentRoom.replace(/[^a-zA-Z0-9\-_]/g, '');
     const message = {
@@ -255,11 +263,8 @@ export function WebRTCVideoCallRoom({
       sender: myPeerId.current,
       room: cleanRoom,
       timestamp: Date.now(),
-      // 2026-11-13 (fix P2f) — geração da sessão (dedup de join/leave)
       gen: sessionGenRef.current,
     };
-
-    // 1. Server-side Signaling API (fastest, guaranteed delivery across separate browser instances)
     try {
       fetch('/api/webrtc/signal', {
         method: 'POST',
@@ -267,29 +272,25 @@ export function WebRTCVideoCallRoom({
         body: JSON.stringify(message),
       }).catch(() => {});
     } catch {}
-
-    // 2. BroadcastChannel (Same browser multi-tab)
     try {
-      if (localBroadcastRef.current) {
-        localBroadcastRef.current.postMessage(message);
-      }
+      if (localBroadcastRef.current) localBroadcastRef.current.postMessage(message);
     } catch {}
-
-    // 3. Supabase Realtime Broadcast (External networks)
-    // 2026-11-13 (fix P5) — só enviar com o canal SUBSCRIBED: enviar antes
-    // forçava o fallback REST que é abortado (console sujo + o anúncio
-    // inicial perdia-se). O envio no callback SUBSCRIBED cobre.
     try {
       const chanRT = supabaseChannelRef.current;
       if (chanRT && (chanRT.subscriptionStatus === 'subscribed' || chanRT.subscriptionStatus === 'SUBSCRIBED')) {
-        chanRT.send({
-          type: 'broadcast',
-          event: 'webrtc',
-          payload: message,
-        });
+        chanRT.send({ type: 'broadcast', event: 'webrtc', payload: message });
       }
     } catch {}
   }, []);
+
+  const sendSignal = useCallback((payload: any) => {
+    // Regista a última oferta para poder ser repetida (rede de segurança).
+    if (payload && payload.type === 'offer' && payload.offer) {
+      ultimaOfertaRef.current = { offer: payload.offer, target: payload.target || '' };
+      ofertaTentativasRef.current = 0;
+    }
+    enviarSinalCru(payload);
+  }, [enviarSinalCru]);
 
   /** Reproduz o vídeo do interlocutor COM som; só silencia (para o vídeo não
    *  ficar preto) se a política do navegador recusar a reprodução. */
@@ -922,6 +923,31 @@ export function WebRTCVideoCallRoom({
     return () => clearTimeout(t);
   }, [hasRemoteStream, remoteSemVideo, remoteStreamRev]);
 
+  // 2026-11-16 — REENVIO DA OFERTA ATÉ LIGAR (ver ultimaOfertaRef).
+  // Cobre o caso em que a mensagem se perde nos primeiros segundos (ainda sem
+  // canal Realtime subscrito, ou instância serverless que não a guardou).
+  useEffect(() => {
+    if (!isActive) return;
+    let cancelado = false;
+    const ciclo = setInterval(() => {
+      if (cancelado || hasRemoteStream) return;
+      const pendente = ultimaOfertaRef.current;
+      const pc = peerConnectionRef.current;
+      if (!pendente || !pc) return;
+      if (ofertaTentativasRef.current >= 4) { clearInterval(ciclo); return; }
+      ofertaTentativasRef.current += 1;
+      console.log(`[CDA-WebRTC] Oferta ainda sem resposta — reenvio ${ofertaTentativasRef.current}/4`);
+      enviarSinalCru({
+        type: 'offer',
+        offer: pendente.offer,
+        target: pendente.target,
+        name: propsRef.current.currentUserName,
+        role: propsRef.current.currentUserRole,
+      });
+    }, 4000);
+    return () => { cancelado = true; clearInterval(ciclo); };
+  }, [isActive, hasRemoteStream, enviarSinalCru]);
+
   // Main Call Lifecycle Effect (Runs ONCE per active session)
   useEffect(() => {
     if (!isActive) return;
@@ -1444,7 +1470,7 @@ export function WebRTCVideoCallRoom({
       )}
 
       {/* 2. MAIN LARGE SCREEN (REMOTE PARTICIPANT - 100% CLEAN VIDEO) */}
-      <div className="relative w-full aspect-video min-h-[200px] md:min-h-[480px] bg-slate-950 flex items-center justify-center overflow-hidden">
+      <div className="relative w-full aspect-video min-h-[200px] md:min-h-[480px] bg-slate-950 flex items-center justify-center overflow-hidden" data-cda-ecra-grande>
         
         {/* Remote Video Stream Tag (Rendered with 100% clean unobstructed view) */}
         <video
@@ -1452,8 +1478,18 @@ export function WebRTCVideoCallRoom({
           data-testid="remote-video"
           autoPlay
           playsInline
+          muted
           className={`w-full h-full object-cover transition-opacity duration-500 ${hasRemoteStream ? 'opacity-100' : 'opacity-0'}`}
         />
+
+        {/* 2026-11-16 — ECRÃ GRANDE NUNCA VAZIO. O utilizador via «fundo branco
+            no telemóvel e fundo negro no computador» em vez da imagem do
+            interlocutor. Causas: (a) a caixa não tinha cor própria — aparecia
+            a cor do cartão por baixo (branco no modo claro); (b) o <video>
+            remoto ficava a opacidade 0 até haver faixas, deixando só o fundo;
+            (c) o PiP por cima do centro tapava o aviso de espera no telemóvel.
+            Agora: fundo próprio da sala, capa visível enquanto não há imagem e
+            aviso de espera ACIMA do PiP (nunca escondido). */}
 
         {/* Dedicated Audio Element for WebRTC audio tracks */}
         <audio
@@ -1465,7 +1501,7 @@ export function WebRTCVideoCallRoom({
 
         {/* WAITING SCREEN (Shown ONLY while waiting for the second participant to enter) */}
         {!hasRemoteStream && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 pb-[160px] sm:pb-6 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-slate-950 text-center">
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 pb-[150px] sm:pb-[120px] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-slate-950 text-center">
             
             {/* Animated Radar Pulse */}
             <div className="relative mb-6 flex items-center justify-center">
