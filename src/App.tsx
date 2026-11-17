@@ -5472,6 +5472,24 @@ export default function App() {
       notify('A mensagem está vazia. Escreva o conteúdo antes de enviar.', 'warning');
       return { ok: false, error: 'A mensagem está vazia. Escreva o conteúdo antes de enviar.' };
     }
+    // 2026-11-17 — DEFESA FINAL: nunca gravar uma correspondência endereçada a
+    // QUEM A ENVIA. Era o que produzia os registos «AGT-LMM → AGT-LMM»: a
+    // mensagem existia na nuvem, mas ficava numa caixa onde ninguém a podia
+    // responder e o destinatário real nunca a recebia. Se isto acontecer, o
+    // envio é recusado com uma explicação em vez de criar um registo inútil.
+    {
+      const chaveEnvio = (v?: string) => String(v || '').trim().toUpperCase()
+        .replace(/\s+/g, '')
+        .replace(/^(\d{9}[A-Z]{2}\d{3})$/i, '$1'); // BIs intactos
+      const minha = chaveEnvio(isInstMode ? normalizeInstCode(institutionCode || bi) : isGovMode ? 'CDA' : bi);
+      const destinoBase = chaveEnvio(String(to).replace(/-\d{1,3}$/, ''));
+      if (minha && destinoBase && (destinoBase === minha.replace(/-\d{1,3}$/, ''))) {
+        const msg = 'O destinatário indicado é a própria conta remetente. Indique o cidadão ou a instituição a quem quer responder.';
+        notify(msg, 'warning');
+        addAuditLog(`Envio recusado (destinatário = remetente): «${rawSubject || '(sem assunto)'}».`, 'warning');
+        return { ok: false, error: msg };
+      }
+    }
     // 2026-09-30 — «TODOS» NO CAMPO DESTINATÁRIO (Nova Mensagem):
     // Quando o destinatário for Todos, envia a correspondência para todos os
     // contactos que já tenham trocado contacto/correspondência com a conta actual.
@@ -5768,17 +5786,52 @@ export default function App() {
   // (resposta «perdida»). 2026-09-18 — numa mensagem ENVIADA o `senderKey` é a
   // PRÓPRIA conta (F15); responder segue então para o destinatário original,
   // nunca para si própria.
+  // 2026-11-17 — DEFEITO CORRIGIDO: «Responder» a uma mensagem da caixa
+  // ENVIADAS ficava endereçada a MIM PRÓPRIO. A comparação do remetente era
+  // textual e exacta; numa conta institucional a chave de sessão é o login do
+  // agente («AGT-LMM-01») mas as linhas guardam o código-base («AGT-LMM»), a
+  // comparação falhava, a mensagem era tratada como recebida e o destinatário
+  // saía com o PRÓPRIO remetente. Resultado: a instituição respondia a si
+  // mesma (registos «AGT-LMM → AGT-LMM»), o cidadão nunca recebia resposta e
+  // ficava com a impressão de que as mensagens desapareciam.
+  const chaveCaixaNormalizada = (valor?: string): string => {
+    const bruto = String(valor || '').trim().toUpperCase();
+    if (!bruto) return '';
+    // Códigos institucionais: remover o sufixo do agente (-01, -02, …) para
+    // comparar a chave-base da caixa. BIs de cidadão não têm hífen e ficam
+    // intactos.
+    return /^[A-Z]{2,}[A-Z0-9]*-[A-Z0-9]+(.+-\d{1,3})?$/.test(bruto) && bruto.includes('-')
+      ? bruto.replace(/-\d{1,3}$/, '')
+      : bruto;
+  };
   const resolverDestinatarioResposta = (msg: Message): string => {
-    const minhaChave = String((isInstMode ? (institutionCode || bi) : isGovMode ? 'CDA' : bi) || '').trim().toUpperCase();
-    const enviadaPorMim = !!msg.senderKey && String(msg.senderKey).trim().toUpperCase() === minhaChave;
-    return enviadaPorMim
-      ? (msg.recipientBi || '')
-      : (msg.senderKey || msg.recipientBi || resolveInstitutionCode(msg.org));
+    const minhaChave = chaveCaixaNormalizada(isInstMode ? normalizeInstCode(institutionCode || bi) : isGovMode ? 'CDA' : bi);
+    const remetente = chaveCaixaNormalizada(msg.senderKey);
+    const destinatarioOriginal = String(msg.recipientBi || '').trim();
+    const enviadaPorMim = !!remetente && (remetente === minhaChave || remetente === chaveCaixaNormalizada(bi));
+    if (enviadaPorMim) {
+      // Responder a algo que EU enviei: o destinatário é quem o recebeu.
+      return destinatarioOriginal && chaveCaixaNormalizada(destinatarioOriginal) !== minhaChave
+        ? destinatarioOriginal
+        : '';
+    }
+    return msg.senderKey || destinatarioOriginal || resolveInstitutionCode(msg.org);
   };
 
   const handleReply = (msg: Message) => {
+    const destinoResposta = resolverDestinatarioResposta(msg);
+    if (!destinoResposta) {
+      addAuditLog(
+        'Não é possível responder: esta mensagem foi enviada por si e não tem destinatário registado. Use «Nova Mensagem» e indique o destinatário.',
+        'warning',
+      );
+      setComposeData({ to: '', subject: '', body: '', attachments: [], toArray: [] });
+      setTab('correspondencias');
+      setIsComposing(true);
+      return;
+    }
     setComposeData({
-      to: resolverDestinatarioResposta(msg),
+      to: destinoResposta,
       subject: `RE: ${msg.details?.subject || msg.preview.substring(0, 30)}`,
       body: `\n\n--------------------------------\nEm resposta à mensagem de ${msg.date}:\n"${msg.preview}"`,
       attachments: []
