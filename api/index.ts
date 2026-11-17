@@ -104,15 +104,33 @@ async function webrtcSinalGuardar(room: string, sender: string, tipo: string, pa
   }
 }
 
+// Limpeza das mensagens efémeras: sem pg_cron no projecto, faz-se aqui, no
+// máximo uma vez por minuto por instância (DELETE de linhas com > 2 min).
+let webrtcUltimaLimpeza = 0;
+async function webrtcLimparAntigas(): Promise<void> {
+  if (Date.now() - webrtcUltimaLimpeza < 60_000) return;
+  webrtcUltimaLimpeza = Date.now();
+  const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+  const chave = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
+  if (!url || !chave) return;
+  try {
+    await fetch(`${url}/rest/v1/rpc/cda_webrtc_signal_limpar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: chave, Authorization: `Bearer ${chave}` },
+      body: '{}',
+    });
+  } catch { /* efémero: falhar a limpeza não afecta a chamada */ }
+}
+
 async function webrtcSinalLer(room: string, sender: string, desde: string): Promise<any[]> {
   const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
   const chave = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '';
   if (!url || !chave) return [];
   try {
-    const corte = new Date(Date.now() - 3000).toISOString(); // sobreposição de 3 s
+    const corte = new Date(Date.now() - 1500).toISOString(); // sobreposição de 1,5 s
     const desdeFinal = desde && desde > corte ? desde : corte;
     const q = `${url}/rest/v1/cda_webrtc_signal?select=payload,criado_em,sender&room=eq.${encodeURIComponent(room)}`
-      + `&sender=neq.${encodeURIComponent(sender)}&criado_em=gte.${encodeURIComponent(desdeFinal)}&order=criado_em.asc&limit=300`;
+      + `&sender=neq.${encodeURIComponent(sender)}&criado_em=gte.${encodeURIComponent(desdeFinal)}&order=criado_em.asc&limit=120`;
     const r = await fetch(q, {
       headers: { apikey: chave, Authorization: `Bearer ${chave}` },
     });
@@ -1926,6 +1944,7 @@ export default async function handler(req: any, res: any) {
         // está gravado no Supabase (durável). Deduplicar por conteúdo para
         // não entregar a mesma mensagem duas vezes.
         let duraveis: any[] = [];
+        void webrtcLimparAntigas();
         try {
           const desdeIso = sinceTsRaw ? new Date(Number(sinceTsRaw) - 1000).toISOString() : '';
           duraveis = await webrtcSinalLer(room, sender, desdeIso);
