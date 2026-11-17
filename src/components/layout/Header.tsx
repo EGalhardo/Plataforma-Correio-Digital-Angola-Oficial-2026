@@ -108,7 +108,7 @@ function UnreadMessagesMenu({
   return (
     <>
       <div className="fixed inset-0 z-[150]" onClick={onClose} />
-      <div className="fixed top-16 md:top-20 right-3 md:right-6 z-[160] w-[min(92vw,340px)] bg-white rounded-2xl shadow-[0_20px_50px_rgba(15,23,42,0.18)] border border-slate-100 overflow-hidden text-left animate-fadeIn">
+      <div className="fixed top-16 md:top-20 right-3 md:right-6 z-[160] w-[min(92vw,340px)] max-h-[calc(100vh-5.5rem)] flex flex-col bg-white rounded-2xl shadow-[0_20px_50px_rgba(15,23,42,0.18)] border border-slate-100 overflow-hidden text-left animate-fadeIn">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
           <span className="flex flex-col min-w-0">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-700">{titulo}</span>
@@ -118,7 +118,7 @@ function UnreadMessagesMenu({
           </span>
           <span data-testid="menu-contador" className="text-[9px] font-black text-white bg-red-600 rounded-full min-w-[16px] h-[16px] px-1 flex items-center justify-center leading-none">{unreadCount}</span>
         </div>
-        <div className="max-h-[260px] overflow-y-auto custom-scrollbar divide-y divide-slate-50">
+        <div className={`${notifications.length > 0 ? 'max-h-[180px]' : 'max-h-[260px]'} overflow-y-auto custom-scrollbar divide-y divide-slate-50 shrink min-h-0`}>
           {unreadCount === 0 ? (
             <div className="px-4 py-6 text-center text-[11px] font-bold text-slate-400">{vazio}</div>
           ) : isAdmin ? (
@@ -170,7 +170,7 @@ function UnreadMessagesMenu({
           )}
         </div>
         {notifications.length > 0 && (
-          <div className="border-t border-slate-100">
+          <div className="border-t border-slate-100 flex flex-col min-h-0 shrink">
             <div className="px-4 py-2 bg-slate-50/70 flex items-center justify-between">
               <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">
                 {translate("Notificações")}
@@ -179,7 +179,7 @@ function UnreadMessagesMenu({
                 {notifications.length}
               </span>
             </div>
-            <div className="max-h-[190px] overflow-y-auto custom-scrollbar divide-y divide-slate-50" data-testid="menu-notificacoes">
+            <div className="max-h-[168px] overflow-y-auto custom-scrollbar divide-y divide-slate-50" data-testid="menu-notificacoes">
               {notifications.slice(0, 6).map((n) => (
                 <button
                   key={`notif-${n.id}`}
@@ -207,7 +207,7 @@ function UnreadMessagesMenu({
             </button>
           </div>
         )}
-        <div className="p-2.5 bg-slate-50/80 border-t border-slate-100 flex flex-col gap-1.5">
+        <div className="p-2.5 bg-slate-50/80 border-t border-slate-100 flex flex-col gap-1.5 shrink-0">
           <button
             type="button"
             onClick={() => { onClose(); onLogout?.(false); }}
