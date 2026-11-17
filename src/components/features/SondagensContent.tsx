@@ -83,6 +83,7 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
   const [inqueritoParaEliminar, setInqueritoParaEliminar] = useState<{ tipo: 'normal'; item: Sondagem } | { tipo: 'ia'; item: InqueritoIA } | null>(null);
   const [aEliminar, setAEliminar] = useState(false);
 
+  const [carregouUmaVez, setCarregouUmaVez] = useState(false);
   const carregar = useCallback(async () => {
     setCarregando(true);
     const ok = await sondagensDisponiveis();
@@ -103,6 +104,7 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
       }
     }
     setCarregando(false);
+    setCarregouUmaVez(true);
   }, [codigoInstituicao]);
 
   useEffect(() => { carregar(); }, [carregar]);
@@ -159,7 +161,9 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
   useEffect(() => {
     if (!foco || (!foco.assunto && !foco.inqueritoId)) return;
     if (foco.em && focoAplicado === foco.em) return;
-    if (carregando) return;
+    // Esperar pela 1.ª carga completa: no arranque a lista ainda está vazia e
+    // desistir aqui consumia o destaque sem nunca o mostrar.
+    if (carregando || !carregouUmaVez) return;
 
     const alvo = foco.assunto ? normalizarAssunto(foco.assunto) : '';
     const casaAssunto = (s?: string) => {
@@ -189,7 +193,7 @@ export function SondagensContent({ codigoInstituicao, addAuditLog, title = 'Sond
       for (const item of (pasta as Pasta<Sondagem | InqueritoIA>).itens) void carregarResultadosRef.current?.(item as Sondagem);
       refDestaque.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 260);
-  }, [foco, carregando, pastas, pastasIA, focoAplicado, onFocoConsumido]);
+  }, [foco, carregando, carregouUmaVez, pastas, pastasIA, focoAplicado, onFocoConsumido]);
 
   const carregarResultados = useCallback(async (s: Sondagem) => {
     const r = await resultadosSondagem(s.id);
