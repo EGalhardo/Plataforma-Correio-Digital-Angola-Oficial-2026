@@ -204,20 +204,38 @@ async function abrirMenuNotificacoes(p) {
 
   await inst.ctx.close();
 
-  // ─── 5. ADMINISTRAÇÃO — notificações clicáveis e Centro acessível ───
-  console.log('\n5. ADMINISTRAÇÃO — notificações clicáveis');
+  // ─── 5. ADMINISTRAÇÃO — notificação real → clique abre a página respectiva ───
+  console.log('\n5. ADMINISTRAÇÃO — clicar numa notificação real');
+  // A Administração não emite notificações para si própria (só registos por
+  // homologar e avisos operacionais), por isso a suite cria a sua: um aviso
+  // operacional real endereçado ao agente ADMIN-0001, como o sistema faria.
+  const tituloAdm = `Aviso Operacional ${MARCA} ${Date.now().toString().slice(-5)}`;
+  const inseridoAdm = await fetch(`${URL_SB}/rest/v1/notifications`, {
+    method: 'POST', headers: { ...H, Prefer: 'return=representation' },
+    body: JSON.stringify([{ target_bi: 'ADMIN-0001', title: tituloAdm, message: `Expediente registado para revisão. ${MARCA}`, time_text: 'Agora', type: 'info', target_tab: 'gov-correspondencias' }]),
+  }).then((r) => r.json()).catch(() => []);
+  const notifAdmId = Array.isArray(inseridoAdm) ? inseridoAdm[0]?.id : undefined;
+
   const adm = await entrar(browser, 'ADMIN-0001', '987654321', 'admin/');
   const menuAdm = await abrirMenuNotificacoes(adm.p);
-  ok(menuAdm, 'admin: menu abre (com secção de notificações quando existirem)');
+  ok(menuAdm, 'admin: menu abre');
+  const itemAdm = adm.p.locator(`[data-testid="menu-item-notificacao"]:has-text("${tituloAdm}")`);
+  const achouAdm = await contarVisiveis(itemAdm) > 0;
+  ok(achouAdm, 'admin: a notificação do agente está no menu e é clicável');
+  if (achouAdm) {
+    await clicarVisivel(itemAdm); await E(7000);
+    const tAdm = await texto(adm.p);
+    const naPagina = /Correspondências|Expediente|Governa/i.test(tAdm);
+    ok(naPagina, 'admin: o clique abriu a página respectiva');
+  }
   const centroAdm = adm.p.locator('[data-testid="menu-ver-centro-notificacoes"]');
+  await abrirMenuNotificacoes(adm.p);
   const temCentro = await contarVisiveis(centroAdm) > 0;
   ok(temCentro, 'admin: atalho para o Centro de Notificações disponível');
   if (temCentro) {
     await clicarVisivel(centroAdm); await E(5000);
     ok(/Centro de Notificações/i.test(await texto(adm.p)), 'admin: Centro de Notificações abre');
   }
-  const itensAdm = await contarVisiveis(adm.p.locator('[data-testid="menu-item-notificacao"]'));
-  console.log(`   (admin: ${itensAdm} notificações no menu)`);
   await adm.p.screenshot({ path: 'test-artifacts/notif-admin.png', fullPage: false });
   await adm.ctx.close();
 
@@ -229,8 +247,14 @@ async function abrirMenuNotificacoes(p) {
   }
   await fetch(`${URL_SB}/rest/v1/messages?id=eq.${msg.id}`, { method: 'DELETE', headers: H });
   if (minha) await fetch(`${URL_SB}/rest/v1/notifications?id=eq.${minha.id}`, { method: 'DELETE', headers: H });
+  if (notifAdmId) await fetch(`${URL_SB}/rest/v1/notifications?id=eq.${notifAdmId}`, { method: 'DELETE', headers: H });
   const notifCid = await q(`notifications?select=id,target_bi,message&message=like.*${encodeURIComponent(assunto)}*`);
   for (const x of notifCid) await fetch(`${URL_SB}/rest/v1/notifications?id=eq.${x.id}`, { method: 'DELETE', headers: H });
+  const sondOrfas = await q(`sondagens?select=id&pergunta=like.*${encodeURIComponent(MARCA)}*`);
+  for (const sx of sondOrfas) {
+    await fetch(`${URL_SB}/rest/v1/sondagem_respostas?sondagem_id=eq.${sx.id}`, { method: 'DELETE', headers: H });
+    await fetch(`${URL_SB}/rest/v1/sondagens?id=eq.${sx.id}`, { method: 'DELETE', headers: H });
+  }
   const sobra = await q(`messages?select=id&subject=like.*${encodeURIComponent(MARCA)}*`);
   console.log(`\nlimpeza: ${sobra.length === 0 ? '✓ 0 restantes' : '✗ ' + sobra.length}`);
 
