@@ -808,8 +808,13 @@ export function MessageDetail({
                           </span>
                         ))}
                       </div>
-                    ) : (
+                    ) : sondDetalhe[id] ? (
                       <p className="text-[11px] font-semibold text-rose-600 mt-1.5 m-0 flex items-center gap-1.5"><AlertTriangle size={12} className="shrink-0" /> Sem escolha — seleccione uma opção na sondagem.</p>
+                    ) : (
+                      // 2026-11-17 — a sondagem não chegou a carregar (ex.: ficou em
+                      // rascunho e a RLS escondeu-a). Antes dizia «Sem escolha» como
+                      // se o cidadão tivesse falhado; agora explica o que se passa.
+                      <p className="text-[11px] font-semibold text-rose-600 mt-1.5 m-0 flex items-center gap-1.5"><AlertTriangle size={12} className="shrink-0" /> Esta sondagem não pôde ser carregada. Feche esta janela e volte a abrir a correspondência.</p>
                     )}
                   </div>
                 </div>

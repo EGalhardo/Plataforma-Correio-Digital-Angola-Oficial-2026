@@ -739,13 +739,11 @@ export const eliminarSondagem = async (sondagemId: number): Promise<SondagemResu
  */
 const ativarSondagemEntregue = async (sondagemId: number): Promise<void> => {
   try {
-    await gravarDados<unknown>(
-      'sondagens', 'update', { id: sondagemId }, { status: 'ativa' }, undefined,
-      async () => {
-        const { data } = await supabase.from('sondagens').update({ status: 'ativa' }).eq('id', sondagemId).select('id');
-        return data as unknown;
-      },
-    );
+    // RPC «security definer» que só activa se o chamador RECEBEU a mensagem com
+    // esta sondagem embutida (ou é a instituição dona / admin). O cliente não
+    // tem permissão para subir o estado por UPDATE directo (a RLS esconde a
+    // linha em rascunho) — daí a função no servidor.
+    await supabase.rpc('cda_ativar_sondagem_entregue', { p_id: sondagemId });
   } catch { /* melhor esforço: a leitura segue com o que houver */ }
 };
 
@@ -753,7 +751,14 @@ export const buscarSondagem = async (sondagemId: number): Promise<SondagemResult
   try {
     if (!(await sondagensDisponiveis())) return { ok: false, motivo: 'sem_migracao' };
     const { data, error } = await supabase.from('sondagens').select('*').eq('id', sondagemId).maybeSingle();
-    if (error || !data) return { ok: false, motivo: 'erro', mensagem: (error as Error)?.message };
+    // 2026-11-17 — rascunho entregue: a RLS esconde a linha ao cidadão (erro ou
+    // zero linhas). Resgata-se pela RPC e relê-se antes de desistir.
+    if (error || !data) {
+      await ativarSondagemEntregue(sondagemId);
+      const { data: relida, error: err2 } = await supabase.from('sondagens').select('*').eq('id', sondagemId).maybeSingle();
+      if (relida) return { ok: true, dados: relida as Sondagem };
+      return { ok: false, motivo: 'erro', mensagem: (err2 as Error)?.message || (error as Error)?.message };
+    }
     // rascunho que já foi entregue embutido numa mensagem → activa e relê
     if ((data as any).status === 'rascunho') {
       await ativarSondagemEntregue(sondagemId);
