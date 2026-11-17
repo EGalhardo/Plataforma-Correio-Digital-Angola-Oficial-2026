@@ -41,6 +41,17 @@ export interface DestinoNotificacao {
   via: 'messageId' | 'assunto' | 'pagina';
 }
 
+/**
+ * Páginas que NÃO são de correio: a notificação deve abrir a PÁGINA (com o item
+ * em destaque), mesmo que o texto cite o assunto da correspondência.
+ * Ex.: «O cidadão X respondeu ao inquérito …» → Inquéritos (não a mensagem).
+ */
+const PAGINAS_PROPIAS = new Set([
+  'inqueritos', 'sondagens', 'notificacoes', 'comprovativos', 'video-atendimento',
+  'inst-video', 'ocorrencias', 'comunicados', 'denuncias', 'nova-denuncia',
+  'perfil', 'documentos', 'inst-qrcode', 'wallet',
+]);
+
 export function resolverDestinoNotificacao(
   notificacao: Pick<AppNotification, 'title' | 'message' | 'targetTab' | 'messageId'>,
   candidatos: Message[],
@@ -49,6 +60,11 @@ export function resolverDestinoNotificacao(
   const tab = String(notificacao.targetTab || opcoes.tabPorDefeito || 'home');
   const pagina = tab === 'mensagem' ? 'correspondencias' : tab;
   const lista = Array.isArray(candidatos) ? candidatos : [];
+
+  // Avisos de página própria (inquéritos, notificações, ocorrências…) nunca são
+  // convertidos em abertura de correspondência: o dono pediu «exibir a
+  // respectiva página» e é lá que o item fica em destaque.
+  if (PAGINAS_PROPIAS.has(pagina)) return { pagina, via: 'pagina' };
 
   // 1. vínculo directo gravado na nuvem
   if (notificacao.messageId) {

@@ -7209,7 +7209,7 @@ Ficha civil do titular:
               onDeleteMessage={handleDeleteMessage}
               // 2026-11-15 — clique na notificação «O cidadão respondeu ao
               // inquérito …» abre aqui o inquérito correspondente em destaque.
-              foco={focoNotificacao ? { assunto: assuntoCitado(focoNotificacao.mensagem), em: focoNotificacao.em } : null}
+              foco={focoNotificacao && String(focoNotificacao.tipo) ? { assunto: assuntoCitado(focoNotificacao.mensagem), em: focoNotificacao.em } : null}
               onFocoConsumido={() => { /* o destaque mantém-se enquanto o utilizador não sair */ }}
             />
           </PainelSuspense>
