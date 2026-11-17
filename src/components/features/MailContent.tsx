@@ -125,6 +125,9 @@ interface MailContentProps {
   handleSendMessage: (override?: ReplySendPayload) => void | Promise<unknown>;
   // 2026-10-24 — Livro de Reclamações: «Criar Denúncia» envia sempre como Reclamação (prefixo [DENÚNCIA]).
   modalidadeFixaEnvio?: 'denuncia' | null;
+  /** 2026-11-17 — explicação a mostrar no topo do compositor (ex.: a
+   *  mensagem original não tem destinatário a quem responder). */
+  avisoCompositor?: string;
   unreadTotal: number;
   correspondenciaTab: string;
   setCorrespondenciaTab: (tab: string) => void;
@@ -181,6 +184,7 @@ export function MailContent({
   setComposeData,
   handleSendMessage,
   modalidadeFixaEnvio = null,
+  avisoCompositor,
   unreadTotal,
   correspondenciaTab,
   setCorrespondenciaTab,
@@ -1308,6 +1312,17 @@ export function MailContent({
 
         {/* Outer Form Container */}
         <div className="space-y-4 md:space-y-5">
+          {/* 2026-11-17 — o compositor pode abrir a pedido do «Responder» sem
+              destinatário válido (mensagem enviada pela própria conta, sem
+              destinatário registado). Explica-se o motivo em vez de deixar o
+              utilizador perante um formulário vazio sem saber porquê. */}
+          {avisoCompositor && (
+            <div className="flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3" role="status" data-testid="aviso-compositor">
+              <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-[12px] md:text-[13px] font-semibold text-amber-900 m-0 leading-relaxed">{avisoCompositor}</p>
+            </div>
+          )}
+
           {/* Section 1: DESTINATÁRIO */}
           <div className="bg-white border border-slate-200/90 rounded-2xl md:rounded-3xl p-5 md:p-6 shadow-xs space-y-4">
             <label className="text-[11px] md:text-xs font-black text-slate-800 uppercase tracking-wider block">

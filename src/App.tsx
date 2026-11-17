@@ -2204,6 +2204,10 @@ export default function App() {
   // 2026-10-24 — «Criar Denúncia» no Livro de Reclamações: o envio fica fixo como Reclamação
   // (prefixo [DENÚNCIA]), para que a mensagem apareça sempre no Livro. Limpa-se ao fechar a composição.
   const [modalidadeFixaEnvio, setModalidadeFixaEnvio] = useState<'denuncia' | null>(null);
+  // 2026-11-17 — explicação mostrada no topo do compositor quando ele abre sem
+  // destinatário válido (ex.: «Responder» a uma mensagem que a própria conta
+  // enviou e cujo destinatário original não está registado).
+  const [avisoCompositor, setAvisoCompositor] = useState<string | null>(null);
   useEffect(() => {
     if (!isComposing || tab !== 'correspondencias') setModalidadeFixaEnvio(null);
   }, [isComposing, tab]);
@@ -5826,16 +5830,22 @@ export default function App() {
         'warning',
       );
       setComposeData({ to: '', subject: '', body: '', attachments: [], toArray: [] });
+      setAvisoCompositor(
+        'Esta mensagem foi enviada pela sua própria conta e não tem destinatário registado a quem responder. '
+        + 'Indique abaixo o cidadão ou a instituição a quem quer responder.',
+      );
       setTab('correspondencias');
       setIsComposing(true);
       return;
     }
+    setAvisoCompositor(null);
     setComposeData({
       to: destinoResposta,
       subject: `RE: ${msg.details?.subject || msg.preview.substring(0, 30)}`,
       body: `\n\n--------------------------------\nEm resposta à mensagem de ${msg.date}:\n"${msg.preview}"`,
       attachments: []
     });
+    setAvisoCompositor(null);
     setTab('correspondencias');
     setIsComposing(true);
   };
@@ -5848,6 +5858,7 @@ export default function App() {
   const handleEnviarMensagemOrgao = (destino: { codigo: string; nome: string; sigla: string }) => {
     setComposeData({ to: destino.codigo, subject: '', body: '', attachments: [], toArray: [] });
     setSelectedMessage(null);
+    setAvisoCompositor(null);
     setTab('correspondencias');
     setIsComposing(true);
     window.scrollTo({ top: 0 });
@@ -5868,6 +5879,7 @@ export default function App() {
       body: rascunho,
       attachments: []
     });
+    setAvisoCompositor(null);
     setTab('correspondencias');
     setIsComposing(true);
   };
@@ -6890,6 +6902,7 @@ Ficha civil do titular:
             setComposeData={setComposeData}
             handleSendMessage={executeOfficialSend}
             modalidadeFixaEnvio={modalidadeFixaEnvio}
+            avisoCompositor={avisoCompositor ?? undefined}
             unreadTotal={unreadTotal}
             correspondenciaTab={correspondenciaTab}
             setCorrespondenciaTab={setCorrespondenciaTab}
