@@ -9,12 +9,18 @@ interface NotificationsCenterContentProps {
   appMode: AppMode;
   messages?: Message[];
   onOpenMessage?: (msg: Message) => void;
+  /**
+   * 2026-11-15 (pedido do dono) — mesmo ponto de decisão do cabeçalho: clicar num
+   * item do Centro abre a página respectiva (com o item em destaque) ou a
+   * correspondência, em vez de apenas mudar de separador.
+   */
+  onAbrirNotificacao?: (n: AppNotification) => void;
 }
 
 /** UX: mensagens longas começam truncadas (2 linhas) com «Ver mais». */
 const LIMITE_EXPANDIR = 140;
 
-export function NotificationsCenterContent({ notifications, setTab, appMode, messages = [], onOpenMessage }: NotificationsCenterContentProps) {
+export function NotificationsCenterContent({ notifications, setTab, appMode, messages = [], onOpenMessage, onAbrirNotificacao }: NotificationsCenterContentProps) {
   const [expandidos, setExpandidos] = useState<Set<string | number>>(new Set());
   const alternar = (id: string | number) => {
     setExpandidos(prev => {
@@ -125,7 +131,8 @@ export function NotificationsCenterContent({ notifications, setTab, appMode, mes
                   return (
                   <button
                     key={item.id}
-                    onClick={() => navigateToTarget(item.targetTab, item)}
+                    data-testid="centro-item-notificacao"
+                    onClick={() => (onAbrirNotificacao ? onAbrirNotificacao(item) : navigateToTarget(item.targetTab, item))}
                     className="w-full text-left bg-slate-50 hover:bg-slate-100 border border-slate-150 rounded-xl md:rounded-2xl p-3.5 transition-all cursor-pointer"
                   >
                     <div className="flex items-start justify-between gap-3">

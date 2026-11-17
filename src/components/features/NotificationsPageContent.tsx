@@ -40,6 +40,7 @@ interface Props {
   onOpenMessage?: (msg: any) => void;
   foco?: FocoNotificacao | null;
   onLimparFoco?: () => void;
+  onAbrirNotificacao?: (n: AppNotification) => void;
 }
 
 const iconePorTipo = (tipo: string) => {
@@ -49,7 +50,7 @@ const iconePorTipo = (tipo: string) => {
 };
 
 export function NotificationsPageContent({
-  notifications, setTab, appMode, messages = [], onOpenMessage, foco, onLimparFoco,
+  notifications, setTab, appMode, messages = [], onOpenMessage, foco, onLimparFoco, onAbrirNotificacao,
 }: Props) {
   const refFoco = useRef<HTMLDivElement | null>(null);
 
@@ -140,6 +141,7 @@ export function NotificationsPageContent({
         appMode={appMode as any}
         messages={messages}
         onOpenMessage={onOpenMessage}
+        onAbrirNotificacao={onAbrirNotificacao}
       />
     </section>
   );

@@ -30,10 +30,12 @@ const q = async (s) => (await fetch(`${URL_SB}/rest/v1/${s}`, { headers: H })).j
 const falhas = [];
 const ok = (cond, msg) => { console.log(`   ${cond ? '✓' : '✗'} ${msg}`); if (!cond) falhas.push(msg); };
 
-async function entrar(browser, u, s) {
+async function entrar(browser, u, s, area = '') {
   const ctx = await browser.newContext({ viewport: { width: 1400, height: 1250 }, locale: 'pt-PT' });
   const p = await ctx.newPage();
-  await p.goto(`${APP}/#/login`, { waitUntil: 'networkidle' }); await E(1400);
+  // O portal tem três entradas: cidadão (#/login), instituição (#/institucional) e
+  // administração (#/admin). Entrar pelo portal errado põe a conta no modo cidadão.
+  await p.goto(`${APP}/${area}#/login`, { waitUntil: 'networkidle' }); await E(1400);
   await p.fill('input[name="cda-utilizador"]', u);
   await p.fill('input[name="cda-senha"]', s);
   await p.click('button:has-text("ENTRAR NO PORTAL")'); await E(8000);
@@ -90,7 +92,7 @@ async function abrirMenuNotificacoes(p) {
 
   // ─── 1. INSTITUIÇÃO cria um inquérito NORMAL para o cidadão real ───
   console.log('\n1. INSTITUIÇÃO — criar inquérito');
-  const inst = await entrar(browser, 'AGT-LMM-01', '123456789');
+  const inst = await entrar(browser, 'AGT-LMM-01', '123456789', 'institucional/');
   const assunto = `${MARCA} ${Math.floor(Math.random() * 90000) + 10000}`;
   await inst.p.locator('button:has-text("Correio")').first().click(); await E(3000);
   await inst.p.locator('button:has-text("Nova Mensagem")').first().click(); await E(2500);
@@ -148,7 +150,7 @@ async function abrirMenuNotificacoes(p) {
   const minha = notifInst.find((x) => String(x.message || '').includes(assunto));
   ok(!!minha, `instituição: notificação de resposta gravada (target_bi=${minha?.target_bi || '—'})`);
 
-  await inst.p.goto(`${APP}/#/inicio`, { waitUntil: 'networkidle' }).catch(() => {});
+  await inst.p.goto(`${APP}/institucional#/home`, { waitUntil: 'networkidle' }).catch(() => {});
   await E(4000);
   await inst.p.keyboard.press('Escape').catch(() => {});
   const menuInst = await abrirMenuNotificacoes(inst.p);
@@ -167,7 +169,7 @@ async function abrirMenuNotificacoes(p) {
   }
   await inst.p.screenshot({ path: 'test-artifacts/notif-instituicao-clique.png', fullPage: false });
 
-  // centro de notificações: atalho + item em destaque + navegação
+  // Centro de Notificações: atalho + item em destaque + navegação
   await abrirMenuNotificacoes(inst.p);
   const verCentro = inst.p.locator('[data-testid="menu-ver-centro-notificacoes"]');
   const temVerCentro = await contarVisiveis(verCentro) > 0;
@@ -176,33 +178,35 @@ async function abrirMenuNotificacoes(p) {
     await clicarVisivel(verCentro); await E(5000);
     ok(/Centro de Notificações/i.test(await texto(inst.p)), 'instituição: Centro de Notificações abre pelo atalho');
   }
-  // clicar na notificação DENTRO do Centro deixa-a em destaque
-  if (achou) {
-    const noCentro = inst.p.locator(`[data-testid="menu-item-notificacao"]:has-text("${assunto}")`);
-    if (await contarVisiveis(noCentro) === 0) {
-      await abrirMenuNotificacoes(inst.p);
-    }
-    const itemCentro = inst.p.locator(`[data-testid="menu-item-notificacao"]:has-text("${assunto}")`);
-    if (await contarVisiveis(itemCentro) > 0) {
-      await clicarVisivel(itemCentro); await E(6000);
-    }
-    const t2 = await texto(inst.p);
-    const noCentroAgora = /Centro de Notificações/i.test(t2);
-    const foco = await contarVisiveis(inst.p.locator('[data-testid="notificacao-em-foco"]'));
-    ok(noCentroAgora || foco > 0, 'instituição: a notificação clicada abre em destaque no Centro');
-    if (foco > 0) {
-      const irInq = inst.p.locator('[data-testid="notificacao-ir-inqueritos"]');
-      if (await contarVisiveis(irInq) > 0) {
-        await clicarVisivel(irInq); await E(5000);
-        ok(/Inquéritos/i.test(await texto(inst.p)), 'instituição: «Abrir inquéritos» leva à página correcta');
-      }
+
+  // clicar na linha DENTRO do Centro → abre a página respectiva com o item em destaque
+  const itemCentro = inst.p.locator(`[data-testid="centro-item-notificacao"]:has-text("${assunto}")`);
+  const achouCentro = await contarVisiveis(itemCentro) > 0;
+  ok(achouCentro, 'instituição: a notificação está listada no Centro');
+  if (achouCentro) {
+    await clicarVisivel(itemCentro); await E(8000);
+    const tCentro = await texto(inst.p);
+    ok(/Crie e realize inquéritos/i.test(tCentro), 'instituição: o clique no Centro abriu a página Inquéritos');
+    const destaqueCentro = await contarVisiveis(inst.p.locator('[data-destaque="sim"]'));
+    ok(destaqueCentro > 0, 'instituição: o inquérito respondido aparece em destaque');
+  }
+
+  // «Abrir inquéritos» a partir do cartão em destaque do Centro
+  await abrirMenuNotificacoes(inst.p);
+  if (await contarVisiveis(inst.p.locator('[data-testid="menu-ver-centro-notificacoes"]')) > 0) {
+    await clicarVisivel(inst.p.locator('[data-testid="menu-ver-centro-notificacoes"]')); await E(5000);
+    const irInq = inst.p.locator('[data-testid="notificacao-ir-inqueritos"]');
+    if (await contarVisiveis(irInq) > 0) {
+      await clicarVisivel(irInq); await E(6000);
+      ok(/Crie e realize inquéritos/i.test(await texto(inst.p)), 'instituição: «Abrir inquéritos» leva à página correcta');
     }
   }
+
   await inst.ctx.close();
 
   // ─── 5. ADMINISTRAÇÃO — notificações clicáveis e Centro acessível ───
   console.log('\n5. ADMINISTRAÇÃO — notificações clicáveis');
-  const adm = await entrar(browser, 'ADMIN-0001', '987654321');
+  const adm = await entrar(browser, 'ADMIN-0001', '987654321', 'admin/');
   const menuAdm = await abrirMenuNotificacoes(adm.p);
   ok(menuAdm, 'admin: menu abre (com secção de notificações quando existirem)');
   const centroAdm = adm.p.locator('[data-testid="menu-ver-centro-notificacoes"]');

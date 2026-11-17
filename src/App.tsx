@@ -7166,6 +7166,7 @@ Ficha civil do titular:
             onOpenMessage={handleSelectMessage}
             foco={focoNotificacao}
             onLimparFoco={() => setFocoNotificacao(null)}
+            onAbrirNotificacao={abrirNotificacao}
           />
         );
       case 'inst-qrcode':
