@@ -1516,11 +1516,22 @@ export function MailContent({
                     exit={{ opacity: 0, height: 0 }}
                     className="overflow-hidden"
                   >
-                    <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex items-center gap-3">
-                      <AlertTriangle className="text-rose-600 shrink-0" size={16} />
-                      <span className="text-xs font-bold text-rose-900">
-                        Não foi possível consultar o BI (Erro real: {recipientLookup.errorCode || 'DESCONHECIDO'}).
-                      </span>
+                    <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex items-start gap-3">
+                      <AlertTriangle className="text-rose-600 shrink-0 mt-0.5" size={16} />
+                      <div className="min-w-0 space-y-1">
+                        <p className="text-xs font-bold text-rose-900 m-0">
+                          {recipientLookup.errorCode === 'P0001'
+                            ? 'A consulta do BI foi recusada: a sua sessão não está identificada como instituição.'
+                            : recipientLookup.errorCode === 'P0002'
+                              ? 'Limite de consultas por hora atingido para esta instituição. Tente mais tarde.'
+                              : 'Não foi possível consultar o BI.'}
+                        </p>
+                        <p className="text-[11px] font-medium text-rose-700/90 m-0">
+                          {recipientLookup.errorCode === 'P0001'
+                            ? 'Volte a entrar no portal institucional e repita a consulta. O envio não é bloqueado por isto: pode indicar o BI e enviar.'
+                            : `Código do erro: ${recipientLookup.errorCode || 'DESCONHECIDO'}.`}
+                        </p>
+                      </div>
                     </div>
                   </motion.div>
                 )}
