@@ -3355,9 +3355,14 @@ depende de integração futura com a infra-estrutura de chaves nacional.
                 setTimeout(() => setShareBlockedNotice(null), 5000);
                 return;
               }
-              // v37.4 — com sondagens embutidas, o «Responder» confirma as escolhas
-              if (cidadaoBi && idsSondagem.length > 0) {
-                setConfirmaSond(true);
+              // 2026-11-17 — DECISÃO DO DONO: os inquéritos só se respondem dentro
+              // de «Ver detalhes Completos». Na página «Detalhe da Correspondência»
+              // o «Responder» levava ao modal «Confirmar Respostas» — que listava
+              // sondagens sem cartões onde escolher («Sem escolha»). Agora leva o
+              // cidadão à vista certa, onde os cartões existem.
+              if (cidadaoBi && (idsSondagem.length > 0 || idsInqIA.length > 0)) {
+                setActiveAction('Ver detalhes');
+                addAuditLogToMessage('Levado a «Ver detalhes Completos» para responder ao inquérito');
                 return;
               }
               addAuditLogToMessage('Resposta enviada');
@@ -3433,27 +3438,10 @@ depende de integração futura com a infra-estrutura de chaves nacional.
         </div>
       )}
 
-      {/* 2026-11-17 — SONDAGEM NA VISTA PRINCIPAL: o cartão de resposta só
-          existia nas vistas secundárias («Ver detalhes» / conteúdo completo).
-          O cidadão abria a mensagem que trazia a sondagem e via apenas o QR —
-          o «Responder» pedia escolhas que não tinha onde fazer. Aqui o cartão
-          aparece logo no topo, antes do protocolo. */}
-      {cidadaoBi && idsSondagem.length > 0 && (
-        <div className="space-y-3 print:hidden">
-          {idsSondagem.map((sid) => (
-            <React.Fragment key={`sond-top-${sid}`}>
-              <SondagemResponderCard
-                sondagemId={Number(sid)}
-                cidadaoBi={cidadaoBi}
-                escolhas={respSond[Number(sid)]?.escolhas || []}
-                onEscolhas={(ids) => mudarEscolhaSondagem(Number(sid), ids)}
-                registada={!!respSond[Number(sid)]?.registada}
-                onCarregar={(s, existente) => carregarSondagemCidadao(Number(sid), s, existente)}
-              />
-            </React.Fragment>
-          ))}
-        </div>
-      )}
+      {/* 2026-11-17 — DECISÃO DO DONO: os inquéritos (sondagem normal e inquérito
+          com IA) NÃO aparecem na página «Detalhe da Correspondência». Ficam
+          reservados à vista «Ver detalhes Completos», que o cidadão abre de
+          propósito. Aqui não se monta nenhum cartão de resposta. */}
 
       {/* 2026-09-12 — o cartão superior «QR Code de Localização» foi removido:
           a página passa a ter UM único QR (o cartão «QR Code de Localização»
