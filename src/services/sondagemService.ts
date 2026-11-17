@@ -351,11 +351,39 @@ export const ativarSondagensParaDestinatarios = async (params: {
     if (n === 0) return { ok: false, motivo: 'validacao', mensagem: 'Indique pelo menos um destinatário.' };
     if (!(await sondagensDisponiveis())) return { ok: false, motivo: 'sem_migracao', mensagem: 'Sondagens aguarda a migração v37 no Supabase.' };
     const patch = { status: 'ativa', abrangencia: 'local', audiencia_total: n, destinatarios: n };
+    // 2026-11-17 — ANTES: o resultado do UPDATE era IGNORADO. Se a RLS filtrasse
+    // a linha, a sondagem ficava em «rascunho» e a mensagem era entregue na
+    // mesma: o cidadão abria-a, não via cartão de resposta e o «Responder»
+    // dizia «Sem escolha — seleccione uma opção na sondagem» sem ter onde a
+    // escolher. Agora só se considera activada a sondagem READ-BACK como
+    // «ativa»; caso contrário o envio é abortado com erro honesto.
+    const falhadas: number[] = [];
     for (const s of params.sondagens) {
-      await supabase
-        .from('sondagens')
-        .update(patch)
-        .eq('id', s.id);
+      let activa = false;
+      const viaProxy = await gravarDados<unknown>(
+        'sondagens', 'update', { id: s.id }, patch, undefined,
+        async () => {
+          const { data } = await supabase.from('sondagens').update(patch).eq('id', s.id).select('id,status');
+          return data as unknown;
+        },
+      );
+      if (viaProxy) activa = true;
+      if (!activa) {
+        const { data, error } = await supabase
+          .from('sondagens')
+          .update(patch)
+          .eq('id', s.id)
+          .select('id,status');
+        activa = !error && Array.isArray(data) && data.some((r: any) => r.status === 'ativa');
+      }
+      if (!activa) falhadas.push(s.id);
+    }
+    if (falhadas.length) {
+      return {
+        ok: false,
+        motivo: 'erro',
+        mensagem: `Não foi possível activar a(s) sondagem(ns) ${falhadas.join(', ')} — a mensagem não foi enviada. Tente novamente.`,
+      };
     }
     return { ok: true, dados: { audiencia: n } };
   } catch (e: unknown) {
@@ -702,11 +730,36 @@ export const eliminarSondagem = async (sondagemId: number): Promise<SondagemResu
 };
 
 // ---- Cidadão ------------------------------------------------------------------------
+/**
+ * 2026-11-17 — REDE DE SEGURANÇA: uma sondagem embutida numa mensagem que já foi
+ * ENTREGUE tem de estar respondível. Se ficou presa em «rascunho» (por uma
+ * activação que não se confirmou), o cidadão abre a mensagem, não vê o cartão e
+ * o «Responder» diz «Sem escolha». Aqui a sondagem é activada na leitura —
+ * pelo proxy (service role) — antes de ser devolvida ao cartão.
+ */
+const ativarSondagemEntregue = async (sondagemId: number): Promise<void> => {
+  try {
+    await gravarDados<unknown>(
+      'sondagens', 'update', { id: sondagemId }, { status: 'ativa' }, undefined,
+      async () => {
+        const { data } = await supabase.from('sondagens').update({ status: 'ativa' }).eq('id', sondagemId).select('id');
+        return data as unknown;
+      },
+    );
+  } catch { /* melhor esforço: a leitura segue com o que houver */ }
+};
+
 export const buscarSondagem = async (sondagemId: number): Promise<SondagemResultado<Sondagem>> => {
   try {
     if (!(await sondagensDisponiveis())) return { ok: false, motivo: 'sem_migracao' };
     const { data, error } = await supabase.from('sondagens').select('*').eq('id', sondagemId).maybeSingle();
     if (error || !data) return { ok: false, motivo: 'erro', mensagem: (error as Error)?.message };
+    // rascunho que já foi entregue embutido numa mensagem → activa e relê
+    if ((data as any).status === 'rascunho') {
+      await ativarSondagemEntregue(sondagemId);
+      const { data: relida } = await supabase.from('sondagens').select('*').eq('id', sondagemId).maybeSingle();
+      if (relida) return { ok: true, dados: relida as Sondagem };
+    }
     return { ok: true, dados: data as Sondagem };
   } catch (e: unknown) {
     return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
