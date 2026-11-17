@@ -51,3 +51,14 @@ O envio só se conclui depois de três confirmações: **modalidade de envio →
 ## Pendente, fora do âmbito desta correção
 
 - **TURN continua por configurar** (`turnConfigurado: false`): a vídeo-chamada funciona com STUN em redes simples, mas pode falhar atrás de NAT simétrico.
+
+## Capturas ainda guardadas
+
+| Ficheiro | O que mostra |
+|---|---|
+| `test-artifacts/correio-prova-cidadao.png` | cidadão, após novo login, com a resposta e a mensagem enviada |
+| `test-artifacts/auto-envio-corrigido.png` | «Responder» a mensagem auto-enviada: destinatário vazio |
+| `test-artifacts/aviso-recorte.png` | o aviso que explica porque o compositor abriu vazio |
+
+As restantes capturas de diagnóstico desta investigação foram apagadas; as
+provas voltam a ser geradas por `scripts/test_correio_ida_e_resposta_playwright.cjs`.
