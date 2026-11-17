@@ -253,6 +253,9 @@ export function WebRTCVideoCallRoom({
   // oferece guarda a última oferta e repete-a a cada 4 s (até 4 vezes) até
   // chegar resposta. Antes, uma oferta perdida = chamada morta em silêncio.
   const ultimaOfertaRef = useRef<{ offer: any; target: string } | null>(null);
+  // 2026-11-16 — há relay TURN configurado? (o servidor informa em /api/webrtc/ice)
+  const relayConfiguradoRef = useRef<boolean>(true);
+  const [avisoRede, setAvisoRede] = useState(false);
   const ofertaTentativasRef = useRef(0);
 
   const enviarSinalCru = useCallback((payload: any) => {
@@ -899,6 +902,15 @@ export function WebRTCVideoCallRoom({
 
   // 2026-11-13 (fix P2) — ligado, mas o vídeo remoto sem frames por 8 s →
   // o badge passa a "SEM VÍDEO" (âmbar) em vez de "EM DIRETO".
+  // 2026-11-16 — «ligado mas a imagem não chega»: depois de 10 s sem frames,
+  // se não houver relay TURN configurado, explicar a causa provável em vez de
+  // deixar o utilizador a olhar para um ecrã parado.
+  useEffect(() => {
+    if (!isActive || !hasRemoteStream || !semVideoRemoto) { setAvisoRede(false); return; }
+    const t = setTimeout(() => setAvisoRede(!relayConfiguradoRef.current), 2000);
+    return () => clearTimeout(t);
+  }, [isActive, hasRemoteStream, semVideoRemoto]);
+
   useEffect(() => {
     if (!isActive || !hasRemoteStream) { setSemVideoRemoto(false); return; }
     let semFramesMs = 0;
@@ -981,6 +993,11 @@ export function WebRTCVideoCallRoom({
               servers.push({ urls: u, username: turn.username, credential: turn.credential })
             );
           }
+          // 2026-11-16 — o servidor diz se existe relay TURN configurado.
+          // Sem relay, chamadas entre redes diferentes (telemóvel em dados
+          // móveis vs. escritório) não transportam imagem. Mostrar isso é
+          // melhor do que fingir que a chamada está bem.
+          relayConfiguradoRef.current = d.ice.turnConfigurado !== false && !!turn;
           if (servers.length > 0) {
             iceConfigRef.current = {
               iceServers: servers,
@@ -1537,6 +1554,14 @@ export function WebRTCVideoCallRoom({
 
         {/* 2026-11-13 (fix P2b) — há faixa de vídeo mas sem frames há 8 s:
             aviso no ecrã (antes: só o badge «SEM VÍDEO» e o resto a preto). */}
+        {avisoRede && (
+          <div className="absolute inset-x-0 top-14 z-30 flex items-center justify-center px-3 pointer-events-none">
+            <div className="bg-slate-950/90 backdrop-blur-md border border-amber-500/50 text-amber-200 px-3 py-2 rounded-xl text-[10px] font-bold leading-snug text-center max-w-[320px] shadow-lg">
+              Está ligado, mas a imagem não atravessa a rede. Para uma chamada de vídeo completa (telemóvel em dados móveis e computador em redes diferentes) é necessário um servidor de relay TURN — ainda não configurado.
+            </div>
+          </div>
+        )}
+
         {hasRemoteStream && !showRemoteSemVideo && semVideoRemoto && (
           <div className="absolute inset-x-0 bottom-3 z-10 flex items-center justify-center pointer-events-none">
             <div className="bg-slate-950/85 backdrop-blur-md border border-amber-500/40 text-amber-300 px-3.5 py-2 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-lg">

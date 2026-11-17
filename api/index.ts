@@ -1970,12 +1970,16 @@ export default async function handler(req: any, res: any) {
     // ICE_TURN_CREDENTIAL na Vercel (Project Settings → Environment Variables).
     if (url.includes('/api/webrtc/ice') && method === 'GET') {
       try {
+        // 2026-11-16 — STUN de vários operadores (redundância: se um cair ou
+        // estiver bloqueado no país do utilizador, os outros respondem).
         const stun = [
           'stun:stun.l.google.com:19302',
           'stun:stun1.l.google.com:19302',
           'stun:stun2.l.google.com:19302',
           'stun:stun3.l.google.com:19302',
           'stun:stun4.l.google.com:19302',
+          'stun:stun.cloudflare.com:3478',
+          'stun:stun.services.mozilla.com:3478',
         ];
         let turn: { urls: string[]; username: string; credential: string } | null = null;
         const turnUrls = process.env.ICE_TURN_URLS;
@@ -1987,15 +1991,20 @@ export default async function handler(req: any, res: any) {
             username: turnUser,
             credential: turnCred,
           };
-        } else {
-          // Relay público de teste (metered.ca) — fallback para travessia de NAT.
-          turn = {
-            urls: ['turn:openrelay.metered.ca:80', 'turns:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:3478'],
-            username: 'openrelayproject',
-            credential: 'openrelayproject',
-          };
         }
-        return res.status(200).json({ ok: true, ice: { stun, turn } });
+        // 2026-11-16 — REMOVIDO o relay público «openrelay.metered.ca»: o
+        // serviço foi descontinuado e o nome resolve para um endereço morto
+        // (100::1 / 192.0.2.1). Medido em produção: **0 candidatos «relay»** —
+        // ou seja, a app anunciava um relay que não existia e as chamadas
+        // entre redes diferentes (telemóvel em dados móveis) ficavam
+        // «ligadas» sem transportar imagem. Um relay inexistente é pior do
+        // que nenhum: dá falsa confiança. Fica assim: sem credenciais em
+        // ICE_TURN_*, devolve-se `turnConfigurado: false` para a interface
+        // poder ser honesta com o utilizador.
+        return res.status(200).json({
+          ok: true,
+          ice: { stun, turn, turnConfigurado: !!turn },
+        });
       } catch (err: any) {
         return res.status(500).json({ error: err?.message || 'ICE config failed' });
       }
