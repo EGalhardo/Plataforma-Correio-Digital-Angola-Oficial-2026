@@ -283,6 +283,7 @@ export type CloudPasswordChangeOutcome =
   | 'ok'          // senha actualizada no Auth (nova passa a valer em todo o lado)
   | 'no_session'  // sem sessão de nuvem activa — o utilizador deve re-entrar
   | 'weak'        // recusada: fraca (< 8 chars) ou rejeitada pelo servidor
+  | 'current_password' // a senha ACTUAL é obrigatória ou está errada (Supabase)
   | 'unavailable' // rede/serviço em baixo — a senha actual mantém-se
   | 'error';
 
@@ -301,6 +302,7 @@ export interface CloudPasswordChangeResult {
 export const cloudChangePassword = async (
   client: SupabaseClient,
   newPassword: string,
+  currentPassword?: string,
 ): Promise<CloudPasswordChangeResult> => {
   try {
     if (!newPassword || newPassword.length < 8) {
@@ -308,11 +310,35 @@ export const cloudChangePassword = async (
     }
     if (!client?.auth?.updateUser) return { outcome: 'unavailable', message: 'cliente Auth ausente.' };
     if (!(await hasActiveCloudSession(client))) return { outcome: 'no_session' };
-    const { error } = await client.auth.updateUser({ password: newPassword });
+    // 2026-11-15 — DEFEITO CORRIGIDO (reportado pelo dono: «não é possível mudar a
+    // senha» nos popups «Configuração de Segurança» e «Segurança de Agente do
+    // Estado»). Com «Secure password change» activo no Supabase Auth, o servidor
+    // responde
+    //   400 {"code":"current_password_required",
+    //        "message":"Current password required when setting new password."}
+    // e a app traduzia isso para o genérico «Serviço temporariamente indisponível»
+    // — a senha NUNCA mudava. O campo «Palavra-passe actual» do formulário era
+    // recolhido e nunca enviado. Passa a viajar como `current_password`
+    // (suportado pelo supabase-js ≥ 2.100).
+    const { error } = await client.auth.updateUser({
+      password: newPassword,
+      ...(currentPassword ? { current_password: currentPassword } : {}),
+    } as { password: string; current_password?: string });
     if (error) {
       const kind = classifyAuthError(error);
-      if (kind === 'unavailable') return { outcome: 'unavailable', message: error.message };
       const msg = `${error.message || ''}`.toLowerCase();
+      const code = String((error as { code?: string }).code || '').toLowerCase();
+      // Senha actual obrigatória (ou errada): dizer isso, nunca «indisponível».
+      if (
+        code === 'current_password_required' ||
+        code === 'invalid_password' ||
+        msg.includes('current password') ||
+        msg.includes('invalid credentials') ||
+        msg.includes('incorrect')
+      ) {
+        return { outcome: 'current_password', message: error.message };
+      }
+      if (kind === 'unavailable') return { outcome: 'unavailable', message: error.message };
       if (msg.includes('password') && (msg.includes('at least') || msg.includes('weak') || msg.includes('strong') || msg.includes('same'))) {
         return { outcome: 'weak', message: error.message };
       }

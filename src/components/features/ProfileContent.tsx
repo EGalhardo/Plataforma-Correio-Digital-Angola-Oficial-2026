@@ -490,7 +490,10 @@ const safeGetItem = (key: string, defaultVal: string = ''): string => {
       );
       return;
     }
-    const res = await cloudChangePassword(supabase, newPassword);
+    // 2026-11-15 — a senha ACTUAL passa a ser enviada: o Supabase exige-a
+    // («current_password_required») sempre que o «Secure password change» está
+    // activo. Sem isto a alteração era impossível nos dois popups de segurança.
+    const res = await cloudChangePassword(supabase, newPassword, currentPassword);
     if (res.outcome === 'ok') {
       // Espelho local da transição (v12/D3) — apenas na área do cidadão
       if (!isInst && targetBi) {
@@ -503,6 +506,8 @@ const safeGetItem = (key: string, defaultVal: string = ''): string => {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
+    } else if (res.outcome === 'current_password') {
+      setPasswordError('A palavra-passe actual está incorrecta. Confirme-a e tente novamente.');
     } else if (res.outcome === 'weak') {
       setPasswordError('A nova palavra-passe foi recusada pelo serviço de autenticação — escolha uma mais forte (mínimo 8 caracteres).');
     } else if (res.outcome === 'no_session') {
@@ -1036,6 +1041,9 @@ return (
                     </div>
                     <input
                       type="password"
+                      name="cda-senha-actual"
+                      autoComplete="current-password"
+                      data-testid="campo-senha-actual"
                       placeholder="Palavra-passe actual"
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
@@ -1043,6 +1051,9 @@ return (
                     />
                     <input
                       type="password"
+                      name="cda-senha-nova"
+                      autoComplete="new-password"
+                      data-testid="campo-senha-nova"
                       placeholder="Nova palavra-passe (mín. 8 caracteres)"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
@@ -1050,22 +1061,26 @@ return (
                     />
                     <input
                       type="password"
+                      name="cda-senha-confirmar"
+                      autoComplete="new-password"
+                      data-testid="campo-senha-confirmar"
                       placeholder="Confirmar nova palavra-passe"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       className="w-full h-10 bg-white border border-slate-200 focus:border-primary/40 rounded-xl px-4 text-xs font-semibold outline-none transition-all"
                     />
                     {passwordError && (
-                      <div className="text-[11px] text-red-650 font-black bg-red-50 border border-red-200 rounded-xl px-3 py-2">{passwordError}</div>
+                      <div data-testid="senha-erro" className="text-[11px] text-red-650 font-black bg-red-50 border border-red-200 rounded-xl px-3 py-2">{passwordError}</div>
                     )}
                     {passwordSuccess && (
-                      <div className="text-[11px] text-emerald-700 font-extrabold bg-white border border-emerald-200 rounded-xl px-3 py-2 flex items-center gap-1.5">
+                      <div data-testid="senha-sucesso" className="text-[11px] text-emerald-700 font-extrabold bg-white border border-emerald-200 rounded-xl px-3 py-2 flex items-center gap-1.5">
                         <Check size={13} className="text-emerald-600" />
                         {passwordSuccessMsg || 'Palavra-passe alterada com sucesso!'}
                       </div>
                     )}
                     <button
                       type="submit"
+                      data-testid="botao-actualizar-senha"
                       className="w-full py-2.5 bg-[#0E2B64] hover:bg-[#081a3d] text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer border-0"
                     >
                       Actualizar Palavra-passe
