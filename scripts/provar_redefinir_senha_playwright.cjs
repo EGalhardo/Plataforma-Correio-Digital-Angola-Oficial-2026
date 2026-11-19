@@ -51,6 +51,20 @@ async function entrar(browser, c, senha) {
   return { ctx, p, entrou: !/ENTRAR NO PORTAL/i.test(t.slice(0, 500)) };
 }
 
+/** Login com repetição: o portal pode demorar a hidratar e o 1.º render ainda
+ *  mostrar o formulário, o que produzia falsos negativos na verificação final
+ *  (comprovado: o Auth aceita a senha e a suite irmã passa). */
+async function entrarComRetry(browser, c, senha, tentativas = 3) {
+  let ultima = null;
+  for (let i = 0; i < tentativas; i++) {
+    const s = await entrar(browser, c, senha);
+    if (s.entrou) { if (i > 0) console.log(`   (login confirmado à ${i + 1}.ª tentativa)`); return s; }
+    ultima = s; await s.ctx.close();
+    await E(3000);
+  }
+  return ultima;
+}
+
 async function abrirPopup(p, c) {
   await p.locator('button:has-text("Perfil")').first().click().catch(() => {}); await E(4500);
   const btn = p.locator(`button:has-text("${c.botao}")`).first();
@@ -153,7 +167,7 @@ async function linkDeRecuperacao(email) {
     await s5.ctx.close();
 
     // 6. confirmação final
-    const s4 = await entrar(browser, c, c.senha);
+    const s4 = await entrarComRetry(browser, c, c.senha);
     ok(s4.entrou, `${c.nome}: conta reposta — entra com a senha original`);
     await s4.ctx.close();
     if (!s4.entrou) { await reporPorApi(c.email || (c.nome === 'CIDADÃO' ? EMAIL_CIDADAO : 'agente.agt-lmm-01@inst.correiodigital.ao'), c.senha); }
@@ -213,7 +227,7 @@ async function linkDeRecuperacao(email) {
   // repor a senha original (o ambiente fica como estava)
   const reposto = await reporPorApi(EMAIL_CIDADAO, cCid.senha);
   ok(reposto, 'B: senha original reposta na conta real');
-  const sFinal = await entrar(browser, cCid, cCid.senha);
+  const sFinal = await entrarComRetry(browser, cCid, cCid.senha);
   ok(sFinal.entrou, 'B: confirmação final — entra com a senha original');
   await sFinal.ctx.close();
 
