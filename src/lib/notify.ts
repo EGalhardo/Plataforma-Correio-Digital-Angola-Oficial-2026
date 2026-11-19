@@ -30,6 +30,8 @@ export interface CdaToastOpcoes {
   duracaoMs?: number;
   /** Botão de ação dentro do toast (ex.: Tentar novamente). */
   acao?: CdaToastAcao;
+  /** Notificação de origem: torna o toast clicável para a página respectiva. */
+  destino?: CdaToastDestino;
 }
 
 export interface CdaToast {
@@ -37,6 +39,26 @@ export interface CdaToast {
   message: string;
   kind: CdaToastKind;
   acao?: CdaToastAcao;
+  /**
+   * 2026-11-15 (pedido do dono) — «ao clicar nessa última notificação [a preta,
+   * no canto superior direito] seja exibido a respectiva página».
+   * Quando o toast avisa de uma notificação, guarda a origem para o clique
+   * poder abrir a página/correspondência certa (ver CdaToastDestino).
+   */
+  destino?: CdaToastDestino;
+}
+
+/** Origem de um toast de notificação — resolvida no clique (App). */
+export interface CdaToastDestino {
+  titulo: string;
+  mensagem: string;
+  tipo: string;
+  /** Página indicada pela notificação (target_tab da nuvem). */
+  targetTab?: string;
+  /** Vínculo directo à correspondência (dedupe_key da nuvem). */
+  messageId?: number;
+  /** Id da linha em `notifications` (quando vem da nuvem). */
+  notificacaoId?: number;
 }
 
 type NotifyListener = (toasts: CdaToast[]) => void;
@@ -93,7 +115,7 @@ export const notify = (message: unknown, kind: CdaToastKind = 'info', opcoes?: C
       return;
     }
     const id = seq++;
-    toasts = [...toasts.slice(-4), { id, message: text, kind, acao: opcoes?.acao }]; // máx. 5 empilhados
+    toasts = [...toasts.slice(-4), { id, message: text, kind, acao: opcoes?.acao, destino: opcoes?.destino }]; // máx. 5 empilhados
     emit();
     armTimer(id, opcoes?.duracaoMs ?? TTL_POR_TIPO_MS[kind]);
   } catch { /* nunca propagar — tal como alert() nunca devolve erro */ }
@@ -102,6 +124,21 @@ export const notify = (message: unknown, kind: CdaToastKind = 'info', opcoes?: C
 /** Fecha uma notificação específica (botão × do host). */
 export const dismissNotify = (id: number): void => {
   try { dismiss(id); } catch { /* ignora */ }
+};
+
+/**
+ * Abre o destino de um toast de notificação (clique no toast preto) e fecha-o.
+ * Devolve `false` se o toast não tiver destino — o chamador decide o que fazer.
+ */
+export const abrirDestinoNotify = (id: number): CdaToastDestino | null => {
+  try {
+    const t = toasts.find(x => x.id === id);
+    if (!t?.destino) return null;
+    dismiss(id);
+    return t.destino;
+  } catch {
+    return null;
+  }
 };
 
 /** Executa a ação da notificação e fecha-a de seguida. */

@@ -92,6 +92,7 @@ import { agruparConversas, conversaDe, resumoDestinatarios } from './utils/conve
 import { PainelConversa } from './components/features/PainelConversa';
 import { contarNotificacoesAtalhos, assuntoChave, normalizarTexto, obterListaCorrespondenciasNaoLidas, contarPorCategoria, itemNotificacaoOcorrencia, isMensagemLida, isMensagemNaoLida } from './utils/notificacoesAtalhos';
 import { notificacaoPertenceAoDono } from './utils/notificacaoDono';
+import type { CdaToastDestino } from './lib/notify';
 import { resolverDestinoNotificacao, assuntoCitado } from './utils/resolverNotificacao';
 import { ocorrenciasApi } from './features/ocorrencias/client';
 import { supabaseService, hasValidSupabaseKeys, resolveInstitutionCode, codigoInstituicaoDeConta, resolveCitizenBi, invalidateMessagesReadCache, isRealInstitutionalCode, eliminarCorrespondenciaTotal, lerMensagemParaEliminacao, listarRegistosPendentes, EVENTO_REGISTOS_ALTERADOS } from './services/supabaseService';
@@ -3734,7 +3735,21 @@ export default function App() {
             } else {
               const novas = minhas.filter(n => !vistos.has(n.id));
               dbNotifs.forEach(n => vistos.add(n.id));
-              novas.slice(0, 3).forEach(n => notify(`${n.title}: ${String(n.message || '').replace(/\s*\([^)]*\)\s*$/, '')}`, 'info', { duracaoMs: 9000 }));
+              // 2026-11-15 (pedido do dono) — o aviso passa a ser CLICÁVEL: leva
+              // consigo a origem (página indicada e vínculo à correspondência) para
+              // que um clique abra a respectiva página, tal como as restantes
+              // notificações (badge, lista de não lidas, atalhos e Centro).
+              novas.slice(0, 3).forEach(n => notify(`${n.title}: ${String(n.message || '').replace(/\s*\([^)]*\)\s*$/, '')}`, 'info', {
+                duracaoMs: 9000,
+                destino: {
+                  titulo: String(n.title || ''),
+                  mensagem: String(n.message || ''),
+                  tipo: String(n.type || 'info'),
+                  targetTab: n.targetTab,
+                  messageId: n.messageId,
+                  notificacaoId: n.id,
+                },
+              }));
             }
           } catch { /* aviso é melhor-esforço */ }
           if (!isDemoSession) {
@@ -5241,6 +5256,34 @@ export default function App() {
   //  1. notificação ligada a uma correspondência (vínculo gravado ou assunto
   //     citado) → abre essa correspondência;
   //  2. caso contrário → abre a página indicada com o item em destaque.
+  // 2026-11-15 (pedido do dono) — clique no aviso preto do canto superior direito.
+  // Constrói a mesma forma de notificação usada pelo menu/Centro e entrega-a ao
+  // ponto de decisão único (`abrirNotificacao`), de modo a abrir a página
+  // respectiva (ou a correspondência, quando a notificação aponta para uma).
+  const abrirNotificacaoRef = useRef<((n: AppNotification) => void) | null>(null);
+  const abrirDestinoDoAviso = useCallback((d: CdaToastDestino) => {
+    abrirNotificacaoRef.current?.({
+      id: Number(d.notificacaoId) || Date.now(),
+      title: d.titulo,
+      message: d.mensagem,
+      type: (d.tipo as AppNotification['type']) || 'info',
+      time: 'Agora',
+      targetTab: d.targetTab || 'correspondencias',
+      messageId: d.messageId,
+      unread: false,
+    } as AppNotification);
+  }, []);
+
+  // O NotifyHost vive em main.tsx (fora do App): o clique chega por evento global.
+  useEffect(() => {
+    const aoAbrir = (e: Event) => {
+      const d = (e as CustomEvent<CdaToastDestino>).detail;
+      if (d) abrirDestinoDoAviso(d);
+    };
+    window.addEventListener('cda:abrir-toast-destino', aoAbrir);
+    return () => window.removeEventListener('cda:abrir-toast-destino', aoAbrir);
+  }, [abrirDestinoDoAviso]);
+
   const abrirNotificacao = useCallback((n: AppNotification) => {
     const destino = resolverDestinoNotificacao(n, [...currentSentMessages, ...currentInbox]);
     setNotifications((prev) => prev.map((item) => (item.id === n.id ? { ...item, unread: false } : item)));
@@ -5250,6 +5293,7 @@ export default function App() {
     setFocoNotificacao({ id: n.id, titulo: n.title, mensagem: n.message, tipo: String(n.type || 'info'), em: Date.now() });
     setTab(destino.pagina || 'notificacoes');
   }, [currentSentMessages, currentInbox, isDemoSession, handleSelectMessage]);
+  abrirNotificacaoRef.current = abrirNotificacao;
 
   const abrirCorrespondenciaPorVoz = (query: string): boolean => {
     const q = String(query || '').toLowerCase().trim();

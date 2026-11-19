@@ -14,7 +14,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2, AlertTriangle, Info, XCircle, X } from 'lucide-react';
-import { subscribeNotify, dismissNotify, executarAcaoNotify, type CdaToast } from '../../lib/notify';
+import { subscribeNotify, dismissNotify, executarAcaoNotify, abrirDestinoNotify, type CdaToast, type CdaToastDestino } from '../../lib/notify';
 
 const ICONES: Record<CdaToast['kind'], React.ReactNode> = {
   success: <CheckCircle2 size={18} color="#4ADE80" aria-hidden="true" />,
@@ -30,7 +30,16 @@ const PREFIXO: Record<CdaToast['kind'], string> = {
   info: '',
 };
 
-export const NotifyHost: React.FC = () => {
+interface NotifyHostProps {
+  /**
+   * 2026-11-15 (pedido do dono) — clique no toast preto de notificação:
+   * abre a página/correspondência respectiva. Resolvido no App, que já tem o
+   * mesmo ponto de decisão usado pelo menu da foto e pelo Centro de Notificações.
+   */
+  onAbrirDestino?: (destino: CdaToastDestino) => void;
+}
+
+export const NotifyHost: React.FC<NotifyHostProps> = ({ onAbrirDestino }) => {
   const [toasts, setToasts] = useState<CdaToast[]>([]);
 
   useEffect(() => subscribeNotify(setToasts), []);
@@ -57,9 +66,29 @@ export const NotifyHost: React.FC = () => {
       {toasts.map(t => (
         <div
           key={t.id}
-          role={t.kind === 'error' ? 'alert' : 'status'}
+          role={t.destino ? 'button' : (t.kind === 'error' ? 'alert' : 'status')}
+          tabIndex={t.destino ? 0 : undefined}
+          aria-label={t.destino ? `${t.message} — abrir a respectiva página` : undefined}
+          data-testid={t.destino ? 'toast-notificacao' : 'toast'}
+          data-toast-id={t.id}
+          title={t.destino ? 'Clique para abrir a respectiva página' : undefined}
+          onClick={t.destino ? () => {
+            const d = abrirDestinoNotify(t.id);
+            // O host vive em main.tsx (fora do App): o destino segue por evento
+            // global e o App resolve a navegação com o mesmo ponto de decisão
+            // já usado pelo menu da foto e pelo Centro de Notificações.
+            if (d) { onAbrirDestino?.(d); window.dispatchEvent(new CustomEvent('cda:abrir-toast-destino', { detail: d })); }
+          } : undefined}
+          onKeyDown={t.destino ? (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              const d = abrirDestinoNotify(t.id);
+              if (d) { onAbrirDestino?.(d); window.dispatchEvent(new CustomEvent('cda:abrir-toast-destino', { detail: d })); }
+            }
+          } : undefined}
           style={{
             pointerEvents: 'auto',
+            cursor: t.destino ? 'pointer' : 'default',
             background: '#0F172A',
             color: '#F8FAFC',
             border: '1px solid #1E293B',
@@ -108,9 +137,22 @@ export const NotifyHost: React.FC = () => {
               </button>
             )}
           </span>
+          {t.destino && (
+            <span
+              aria-hidden="true"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0,
+                fontSize: 10.5, fontWeight: 900, letterSpacing: '.06em',
+                textTransform: 'uppercase', color: '#93C5FD', marginTop: 1,
+              }}
+            >
+              Abrir
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+            </span>
+          )}
           <button
             type="button"
-            onClick={() => dismissNotify(t.id)}
+            onClick={(e) => { e.stopPropagation(); dismissNotify(t.id); }}
             aria-label="Fechar notificação"
             style={{
               background: 'transparent',
