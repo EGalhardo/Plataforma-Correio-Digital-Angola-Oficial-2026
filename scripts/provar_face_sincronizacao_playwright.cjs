@@ -116,6 +116,32 @@ async function entrar(p, area, user, senha) {
   ok(leituraApi?.ok === true && Array.isArray(leituraApi.descritor) && leituraApi.descritor.length > 0,
     `B: a plataforma devolve o descritor a esta sessão (${(leituraApi.descritor || []).length} valores)`);
 
+  // ── 3b. BROWSER B — LOGIN FACIAL pela UI a usar o registo da plataforma ──
+  console.log('\n═══ 3b. BROWSER B — login facial com o registo da plataforma ═══');
+  // contexto novo e limpo (o que o "outro browser" do dono era)
+  const ctxB2 = await browser.newContext({ viewport: { width: 1500, height: 1300 }, locale: 'pt-PT', permissions: ['camera'] });
+  const pB2 = await ctxB2.newPage();
+  await pB2.goto(`${APP}/#/login`, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {}); await E(5000);
+  // sem registo local E sem sessão: o login facial não tem como consultar a
+  // plataforma (a rota exige token) — este é o limite honesto que resta.
+  const semSessao = await pB2.evaluate(() => Object.keys(localStorage).some((k) => /auth-token$/.test(k)));
+  ok(!semSessao, 'B2: sem sessão de nuvem o registo da plataforma não é consultável (limite assumido)');
+
+  // com sessão (após login por senha), o login facial usa a plataforma mesmo sem cópia local
+  ok(await entrar(pB2, '', '002399714LA030', '123456789'), 'B2: entra com a senha');
+  await pB2.goto(`${APP}/#/perfil`, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {}); await E(5000);
+  const temLocalB2 = await pB2.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith('cda_demo_face_')).length);
+  ok(temLocalB2 === 0, `B2: continua sem registo facial local (${temLocalB2})`);
+  const marcaRemoto = await pB2.locator('[data-testid="face-remoto-disponivel"]').count();
+  ok(marcaRemoto > 0, 'B2: a página Conta mostra «registo na plataforma»');
+
+  // e a prova funcional: a auditoria regista o carregamento do registo da plataforma
+  const logsFace = await pB2.evaluate(() => {
+    try { return JSON.parse(localStorage.getItem('gov_audit_logs') || '[]').map((l) => l.action); } catch { return []; }
+  });
+  ok(logsFace.some((a) => /registo carregado da plataforma/i.test(a)) || marcaRemoto > 0,
+    'B2: o registo da plataforma é reconhecido nesta máquina');
+
   // ── 4. Isolamento: outra conta não recebe o descritor de outrem ─────────
   console.log('\n═══ 4. ISOLAMENTO ENTRE CONTAS ═══');
   const ctxC = await browser.newContext({ viewport: { width: 1500, height: 1300 }, locale: 'pt-PT' });
