@@ -117,6 +117,7 @@ export function ProfileContent({
   setHasTwoFactor,
   setGovPin,
   setTab,
+  handleLogout,
   inbox = [],
   docInbox = [],
   sentMessages = [],
@@ -447,10 +448,26 @@ const safeGetItem = (key: string, defaultVal: string = ''): string => {
   // dispositivos; a credencial local do cidadão é espelhada (transição v12 até
   // F-c). Sem sessão activa → mensagem honesta (nada quebra). Demos mantêm o
   // comportamento simulado anterior, com desvio explícito no log.
+  // 2026-11-15 — «Esqueci a palavra-passe actual»: onde antes o titular ficava
+  // SEM SAÍDA (o servidor exige a senha actual e ele não a sabe — sobretudo
+  // depois de reposições assistidas), o popup passa a revelar o caminho real:
+  // a página «Recuperar Senha» por e-mail, no próprio portal.
+  const [passwordForgot, setPasswordForgot] = useState(false);
+  const irParaRecuperarSenha = () => {
+    setIsConfiguringSecurity(false);
+    try {
+      // A página de recuperação é a do portal da área em que o titular está.
+      window.location.hash = '#/recuperar-senha';
+    } catch {
+      window.location.hash = '#/login';
+    }
+  };
+
   const submitPasswordChange = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
     setPasswordSuccess(false);
     setPasswordSuccessMsg('');
+    setPasswordForgot(false);
     if (!currentPassword || !newPassword || !confirmPassword) {
       setPasswordError('Por favor, preencha todos os campos.');
       return;
@@ -483,9 +500,13 @@ const safeGetItem = (key: string, defaultVal: string = ''): string => {
     }
     const sessionActive = await hasActiveCloudSession(supabase);
     if (!sessionActive) {
+      // Sem sessão de nuvem a alteração é tecnicamente impossível (o Supabase
+      // exige o token do próprio titular). Em vez de um beco sem saída, o
+      // utilizador recebe a via alternativa imediata: recuperar por e-mail.
+      setPasswordForgot(true);
       setPasswordError(
         isCloudBound(targetBi)
-          ? 'Sessão segura inactiva. Saia e entre novamente com a senha actual para activar a sessão de nuvem.'
+          ? 'Sessão segura inactiva neste dispositivo. Entre novamente com a senha actual para a alterar aqui — ou recupere a palavra-passe por e-mail.'
           : 'Esta conta ainda não está ligada à nuvem — a alteração da palavra-passe fica disponível após o próximo início de sessão com senha.'
       );
       return;
@@ -495,9 +516,17 @@ const safeGetItem = (key: string, defaultVal: string = ''): string => {
     // activo. Sem isto a alteração era impossível nos dois popups de segurança.
     const res = await cloudChangePassword(supabase, newPassword, currentPassword);
     if (res.outcome === 'ok') {
-      // Espelho local da transição (v12/D3) — apenas na área do cidadão
+      // Espelho local da transição (v12/D3) — apenas na área do cidadão.
+      // 2026-11-15: grava-se também a chave NORMALIZADA (maiúsculas, sem
+      // espaços). O login facial e a recuperação usam sempre a forma
+      // normalizada do B.I.; com a chave em bruto, o espelho ficava órfão e o
+      // próximo login facial reabria a sessão da nuvem com a senha VELHA.
       if (!isInst && targetBi) {
-        try { localStorage.setItem(`citizen_pass_${targetBi}`, newPassword); } catch { /* sem espaço — sem espelho */ }
+        const biEspelho = targetBi.trim().toUpperCase().replace(/\s+/g, '');
+        try {
+          localStorage.setItem(`citizen_pass_${biEspelho}`, newPassword);
+          if (biEspelho !== targetBi) localStorage.setItem(`citizen_pass_${targetBi}`, newPassword);
+        } catch { /* sem espaço — sem espelho */ }
       }
       setPasswordError('');
       setPasswordSuccess(true);
@@ -507,11 +536,13 @@ const safeGetItem = (key: string, defaultVal: string = ''): string => {
       setNewPassword('');
       setConfirmPassword('');
     } else if (res.outcome === 'current_password') {
-      setPasswordError('A palavra-passe actual está incorrecta. Confirme-a e tente novamente.');
+      setPasswordForgot(true);
+      setPasswordError('A palavra-passe actual está incorrecta. Confirme-a e tente novamente — ou, se não se lembra dela, recupere-a por e-mail.');
     } else if (res.outcome === 'weak') {
       setPasswordError('A nova palavra-passe foi recusada pelo serviço de autenticação — escolha uma mais forte (mínimo 8 caracteres).');
     } else if (res.outcome === 'no_session') {
-      setPasswordError('Sessão segura inactiva. Saia e entre novamente com a senha actual.');
+      setPasswordForgot(true);
+      setPasswordError('Sessão segura inactiva. Entre novamente com a senha actual — ou recupere a palavra-passe por e-mail.');
     } else {
       setPasswordError('Serviço temporariamente indisponível. A sua senha actual mantém-se válida — tente mais tarde.');
     }
@@ -1085,6 +1116,27 @@ return (
                     >
                       Actualizar Palavra-passe
                     </button>
+                    {passwordSuccess ? (
+                      <button
+                        type="button"
+                        data-testid="botao-sair-com-nova-senha"
+                        onClick={() => { setIsConfiguringSecurity(false); void handleLogout(false); }}
+                        className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-black uppercase tracking-widest rounded-xl transition-all cursor-pointer border-0"
+                      >
+                        Sair e entrar com a nova palavra-passe
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        data-testid="botao-recuperar-senha-popup"
+                        onClick={irParaRecuperarSenha}
+                        className="w-full text-[9.5px] font-black uppercase tracking-wider text-[#2563eb] hover:text-[#0c2340] bg-transparent border-0 cursor-pointer py-1"
+                      >
+                        {passwordForgot
+                          ? 'Recuperar a palavra-passe por e-mail →'
+                          : 'Não sabe a palavra-passe actual? Recuperar por e-mail →'}
+                      </button>
+                    )}
                     <p className="text-[9px] text-slate-400 font-bold leading-snug">A nova palavra-passe passa a ser exigida em todos os dispositivos.</p>
                   </form>
 

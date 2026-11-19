@@ -2541,6 +2541,8 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
         }
       }
 
+      let enviado = false;
+
       // 2. Se a chave Resend estiver configurada, envia o email oficial
       if (apiKey) {
         const de = (process.env.EMAIL_REMETENTE || 'Correio Digital Angola <onboarding@resend.dev>').trim();
@@ -2578,11 +2580,38 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
         if (!rResend.ok) {
           const txt = await rResend.text();
           console.warn('[EMAIL-RECUPERACAO] Resend retornou:', rResend.status, txt);
+            enviado = false;
+          } else {
+            enviado = true;
+          }
         }
-      }
 
-      // Resposta neutra de sucesso para segurança (anti-enumeração)
-      return res.status(200).json({ ok: true, enviado: true });
+        // 3. 2026-11-15 — REDE DE SEGURANÇA: sem RESEND_API_KEY (ou se o Resend
+        // falhar) o pedido respondia `ok` sem enviar NADA. Passa a cair no
+        // mailer do próprio Supabase Auth (só precisa da chave anon).
+        if (!enviado) {
+          const anonKey = ((process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '') as string).trim();
+          if (supaUrl && anonKey) {
+            try {
+              const rAuth = await fetch(`${supaUrl}/auth/v1/recover`, {
+                method: 'POST',
+                headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: para, gotrue_meta_security: {}, redirect_to: redirectBase }),
+              });
+              if (rAuth.ok) {
+                enviado = true;
+              } else {
+                console.warn('[EMAIL-RECUPERACAO] Supabase recover retornou:', rAuth.status, (await rAuth.text()).slice(0, 200));
+              }
+            } catch (e) {
+              console.warn('[EMAIL-RECUPERACAO] Falha no fallback do mailer Supabase:', e);
+            }
+          }
+        }
+
+        // Resposta NEUTRA (anti-enumeração): nunca revela se o e-mail existe;
+        // `enviado` só diz se a plataforma conseguiu entregar o pedido ao mailer.
+        return res.status(200).json({ ok: true, enviado });
     } catch (e) {
       console.error('[EMAIL-RECUPERACAO] Exceção:', e);
       return res.status(200).json({ ok: true, enviado: false });
