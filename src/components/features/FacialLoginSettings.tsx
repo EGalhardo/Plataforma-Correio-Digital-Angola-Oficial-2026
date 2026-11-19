@@ -9,13 +9,14 @@
 // PESSOA (BI / Nº Agente Institucional / Nº Agente Admin).
 // ============================================================================
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CdaConfirmModal } from '../ui/CdaConfirm';
 import { ScanFace, ShieldCheck, Trash2, Camera, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import {
   buildFaceStorageKey, readFaceTemplate, computeFaceSignatureAsync,
   makeSimulatedSignature, type FaceTemplate
 } from '../../services/faceAuth';
+import { supabase } from '../../lib/supabaseClient';
 
 interface FacialLoginSettingsProps {
   /** 'user' | 'institution' | 'admin' — tal como o appMode da sessão. */
@@ -40,6 +41,84 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
   const [cameraError, setCameraError] = useState(false);
   const [simulated, setSimulated] = useState(false);
   const capturesRef = useRef<number[][]>([]);
+
+  // ── 2026-11-15 — CONSENTIMENTO EXPLÍCITO e SINCRONIZAÇÃO ────────────────
+  // O registo nasce local (como sempre). A partir daqui o titular pode ACEITAR
+  // guardá-lo também na plataforma, para o rosto deixar de se perder com o
+  // navegador. Sem este «sim» nada sai do dispositivo — e a frase do ecrã
+  // deixa de ser uma promessa que o código não cumpre.
+  const CHAVE_CONSENT = `cda_face_consent_${mode}_${(personId || 'anon').toUpperCase().replace(/\s+/g, '')}`;
+  const [consentimento, setConsentimento] = useState<boolean>(() => {
+    try { return localStorage.getItem(CHAVE_CONSENT) === '1'; } catch { return false; }
+  });
+  const [aEnviar, setAEnviar] = useState(false);
+  const [estadoNuvem, setEstadoNuvem] = useState<string | null>(null);
+  const [remotoDisponivel, setRemotoDisponivel] = useState(false);
+
+  const pedirTemplate = async (acao: string, extra: Record<string, unknown> = {}) => {
+    const { data } = await supabase.auth.getSession();
+    const token = data?.session?.access_token || '';
+    if (!token) return { ok: false, erro: 'Sessão de nuvem inactiva — entre com a senha para sincronizar.' };
+    const r = await fetch('/api/face-template', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ acao, ...extra }),
+    });
+    return r.json().catch(() => ({ ok: false, erro: `HTTP ${r.status}` }));
+  };
+
+  // Ao abrir: existe registo na plataforma para esta identidade?
+  useEffect(() => {
+    let vivo = true;
+    void (async () => {
+      try {
+        const r = await pedirTemplate('ler');
+        if (!vivo) return;
+        setRemotoDisponivel(!!r.ok);
+        if (!r.ok && r.erro === 'sem-registo') setEstadoNuvem('Sem registo na plataforma.');
+      } catch { /* sem rede — o local continua a valer */ }
+    })();
+    return () => { vivo = false; };
+  }, [personId, mode]);
+
+  const aceitarESincronizar = async () => {
+    try { localStorage.setItem(CHAVE_CONSENT, '1'); } catch { /* ignora */ }
+    setConsentimento(true);
+    // Se já existe registo local, sobe-o de imediato.
+    const t = readFaceTemplate(storageKey);
+    if (t && (t.signature?.length || t.signatures?.length)) {
+      await enviarTemplate(t);
+    } else {
+      setEstadoNuvem('Consentimento registado. O próximo registo facial passa a ser guardado também na plataforma.');
+    }
+  };
+
+  const revogarConsentimento = async () => {
+    setAEnviar(true);
+    try { localStorage.setItem(CHAVE_CONSENT, '0'); } catch { /* ignora */ }
+    setConsentimento(false);
+    const r = await pedirTemplate('apagar');
+    setRemotoDisponivel(false);
+    setEstadoNuvem(r.ok ? 'Consentimento retirado e registo apagado da plataforma.' : 'Consentimento retirado neste dispositivo.');
+    setAEnviar(false);
+    onAudit?.('LOGIN FACIAL: consentimento de sincronização RETIRADO — pedido de eliminação do descritor na plataforma.', 'warning');
+  };
+
+  const enviarTemplate = async (t: FaceTemplate) => {
+    setAEnviar(true);
+    try {
+      const descritor = (t.signatures && t.signatures.length ? t.signatures[0] : t.signature) || [];
+      const r = await pedirTemplate('gravar', { descritor, algoritmo: (t as any).algoritmo || (descritor.length === 288 ? 'v2' : 'v1') });
+      if (r.ok) {
+        setRemotoDisponivel(true);
+        setEstadoNuvem('Registo sincronizado com a plataforma — passa a estar disponível em qualquer navegador.');
+        onAudit?.('LOGIN FACIAL: descritor sincronizado com a plataforma (consentimento do titular).', 'success');
+      } else {
+        setEstadoNuvem(`Não foi possível sincronizar: ${r.erro || 'erro desconhecido'}`);
+        onAudit?.(`LOGIN FACIAL: falha ao sincronizar o descritor (${r.erro || 'erro'}).`, 'warning');
+      }
+    } finally { setAEnviar(false); }
+  };
 
   const stopCamera = () => {
     streamRef.current?.getTracks().forEach(t => t.stop());
@@ -172,6 +251,7 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
         }
         setTemplate(payload);
         setErroGravacao(null);
+        if (consentimento) void enviarTemplate(payload);
         onAudit?.(`LOGIN FACIAL: rosto registado na página Conta (${mode} · ${payload.identifier}) — guardado no armazenamento local deste navegador.`, 'success');
         // v37.78.39 — flash de sucesso animado (3s)
         setSucesso(true);
@@ -195,6 +275,7 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
   const removeTemplate = () => {
     try { localStorage.removeItem(storageKey); } catch { /* ignora */ }
     setTemplate(null);
+    if (consentimento) void pedirTemplate('apagar').then((r) => setEstadoNuvem(r.ok ? 'Registo apagado também na plataforma.' : null));
     onAudit?.(`LOGIN FACIAL: registo facial removido (${mode} · ${personId.toUpperCase().replace(/\s+/g, '')}).`, 'warning');
   };
 
@@ -224,9 +305,73 @@ export function FacialLoginSettings({ mode, personId, displayName, onAudit }: Fa
           <ShieldCheck size={11} className="shrink-0 mt-0.5 text-emerald-400" />
           Guardado na memória deste dispositivo (armazenamento local do navegador) para:
           <strong className="font-black">{mode === 'institution' ? 'Institucional' : mode === 'admin' ? 'Administração' : 'Cidadão'} · {template.identifier}</strong>.
-          Não é enviado para a internet.
+          {consentimento ? ' Neste dispositivo e na plataforma (autorizou abaixo).' : ' Só neste navegador — não é enviado para a internet.'}
         </p>
       )}
+
+      {/* 2026-11-15 — CONSENTIMENTO EXPLÍCITO. Antes, o ecrã afirmava «nunca é
+          enviado para a internet» e o registo morria com o navegador. Agora o
+          titular escolhe: só neste dispositivo (por omissão) ou também na
+          plataforma — e pode retirar o consentimento a qualquer momento. */}
+      <div data-testid="cartao-consentimento-facial" className="mt-3 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+        <div className="flex items-start gap-2">
+          <ShieldCheck size={13} className={`shrink-0 mt-0.5 ${consentimento ? 'text-emerald-600' : 'text-slate-400'}`} />
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-700">
+              Guardar o rosto também na plataforma
+            </p>
+            <p className="text-[9.5px] text-slate-500 font-semibold leading-snug mt-1">
+              {consentimento
+                ? 'Autorizou guardar o descritor facial (matemática, não a fotografia) na plataforma. O registo passa a estar disponível em qualquer navegador ou telemóvel. Pode retirar esta autorização quando quiser.'
+                : 'Por omissão o rosto fica só neste navegador — se limpar os dados ou mudar de dispositivo, perde-o. Ao autorizar, guardamos apenas o descritor matemático na plataforma, nunca a fotografia.'}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {!consentimento ? (
+                <button
+                  type="button"
+                  data-testid="autorizar-sincronizacao-facial"
+                  onClick={aceitarESincronizar}
+                  disabled={aEnviar}
+                  className="px-3 py-1.5 rounded-lg bg-[#0E2B64] hover:bg-[#081a3d] text-white text-[9px] font-black uppercase tracking-widest cursor-pointer border-0 disabled:opacity-60"
+                >
+                  {aEnviar ? 'A enviar…' : 'Autorizar e sincronizar'}
+                </button>
+              ) : (
+                <>
+                  {template && (
+                    <button
+                      type="button"
+                      data-testid="reenviar-sincronizacao-facial"
+                      onClick={() => void enviarTemplate(template)}
+                      disabled={aEnviar}
+                      className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-indigo-400 text-slate-700 text-[9px] font-black uppercase tracking-widest cursor-pointer disabled:opacity-60"
+                    >
+                      {aEnviar ? 'A enviar…' : 'Sincronizar agora'}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    data-testid="retirar-consentimento-facial"
+                    onClick={revogarConsentimento}
+                    disabled={aEnviar}
+                    className="px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 text-[9px] font-black uppercase tracking-widest cursor-pointer disabled:opacity-60"
+                  >
+                    Retirar autorização
+                  </button>
+                </>
+              )}
+              {remotoDisponivel && (
+                <span data-testid="face-remoto-disponivel" className="text-[9px] font-black uppercase tracking-wider text-emerald-600">
+                  · registo na plataforma
+                </span>
+              )}
+            </div>
+            {estadoNuvem && (
+              <p data-testid="estado-nuvem-facial" className="text-[9.5px] text-slate-500 font-bold leading-snug mt-2">{estadoNuvem}</p>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* v37.78.40 — erro de gravação VISÍVEL (armazenamento bloqueado/cheio) */}
       {erroGravacao && (

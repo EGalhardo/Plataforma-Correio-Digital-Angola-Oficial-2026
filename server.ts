@@ -2238,6 +2238,17 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
   // («email_address_invalid»), pelo que o link nunca chega. Só o ADMIN real
   // (ADMIN-0001) repõe a senha de OUTRA conta; a acção vai para audit_logs.
   // ============================================================================
+  app.post("/api/face-template", async (req, res) => {
+    const { tratarFaceTemplate } = await import("./src/services/faceTemplateService");
+    const r = await tratarFaceTemplate(
+      (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").trim(),
+      (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || "").trim(),
+      { ...(req.body || {}), token: String(req.headers.authorization || "").replace(/^Bearer\s+/i, "").trim() },
+    );
+    const { status, ...resto } = r;
+    return res.status(status).json(resto);
+  });
+
   app.post("/api/repor-senha", async (req, res) => {
     try {
       const admin = createSupabaseAdminClient();

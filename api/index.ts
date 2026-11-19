@@ -3960,6 +3960,23 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
       }
     }
 
+    // TEMPLATE FACIAL NA PLATAFORMA (2026-11-15) — opt-in do titular.
+    // O ecrã afirma hoje «a biometria nunca sai do dispositivo»; a partir do
+    // momento em que o titular ACEITA guardar o registo na plataforma, essa
+    // frase deixa de ser verdade e passa a haver sincronização. Guarda-se só o
+    // VETOR (nunca a fotografia) e a rota só aceita a identidade do próprio
+    // token — ver src/services/faceTemplateService.ts.
+    if (url.includes('/api/face-template') && method === 'POST') {
+      const { tratarFaceTemplate } = await import('../src/services/faceTemplateService');
+      const r = await tratarFaceTemplate(
+        (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim(),
+        (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '').trim(),
+        { ...(body || {}), token: String(req.headers.authorization || (req.headers as any).Authorization || '').replace(/^Bearer\s+/i, '').trim() },
+      );
+      const { status, ...resto } = r;
+      return res.status(status).json(resto);
+    }
+
     // REPOSIÇÃO ASSISTIDA DE PALAVRA-PASSE (2026-11-15) — a via que a app
     // promete no ecrã «Redefinir Senha» para as contas cujo único e-mail é
     // TÉCNICO (bi.<bi>@cidadao.correiodigital.ao / agente.*@inst|admin...):

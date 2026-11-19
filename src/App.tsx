@@ -8116,9 +8116,49 @@ Ficha civil do titular:
       // em memória fica apenas em primeiro na ordem de tentativa (mesma UX),
       // sem excluir as restantes (lógica pura em faceAuth.buildFaceMatchPool). A
       // segurança mantém-se: a face tem de bater o limiar com ALGUM registo local.
+      // 2026-11-15 — FONTE NA PLATAFORMA: se esta identidade autorizou guardar o
+      // registo no servidor, o login facial deixa de depender do navegador em
+      // que o rosto foi registado. Só se consulta quando o titular está
+      // autenticado (token válido) — a rota devolve apenas o descritor da
+      // PRÓPRIA identidade do token.
+      let candidatoNuvem: { mode: string; identifier: string; template: ReturnType<typeof readStoredDemoFace> } | null = null;
+      try {
+        const { data: sSess } = await supabase.auth.getSession();
+        const tokFace = sSess?.session?.access_token || '';
+        if (tokFace) {
+          const rFace = await fetch('/api/face-template', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokFace}` },
+            body: JSON.stringify({ acao: 'ler' }),
+          });
+          const jFace = await rFace.json().catch(() => null);
+          if (jFace?.ok && Array.isArray(jFace.descritor) && jFace.descritor.length) {
+            const ident = String(
+              (sSess?.session?.user?.app_metadata as any)?.bi ||
+              (sSess?.session?.user?.app_metadata as any)?.agent ||
+              normTyped
+            ).toUpperCase().replace(/\s+/g, '');
+            candidatoNuvem = {
+              mode: appMode,
+              identifier: ident || normTyped,
+              template: {
+                identifier: ident || normTyped,
+                profileMode: appMode,
+                capturedAt: jFace.atualizadoEm || '',
+                signature: jFace.descritor,
+              } as ReturnType<typeof readStoredDemoFace>,
+            };
+            addAuditLog('Login facial: registo carregado da plataforma (consentimento do titular) — este navegador não precisa de ter o rosto guardado.', 'info');
+          }
+        }
+      } catch { /* sem rede/token — o caminho local continua */ }
+
       const pool: { mode: string; identifier: string; template: ReturnType<typeof readStoredDemoFace> }[] =
         buildFaceMatchPool(
-          deviceFaces.map(f => ({ mode: f.mode, identifier: f.identifier, template: f.template })),
+          [
+            ...(candidatoNuvem ? [candidatoNuvem] : []),
+            ...deviceFaces.map(f => ({ mode: f.mode, identifier: f.identifier, template: f.template })),
+          ],
           normTyped || demoIdAlvo,
         );
       setDeviceFaceCount(deviceFaces.length);
