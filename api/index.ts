@@ -1724,7 +1724,10 @@ const DADOS_DEMO_BIS = ['009874562LA041', 'AGT-9921-SR', 'ADM-8812-OP'];
 
 interface DadosIdentidade {
   bi: string; email: string; role: string;
-  isAdmin: boolean; isInst: boolean; instCode: string; demo: boolean;
+  isAdmin: boolean; isInst: boolean; instCode: string;
+  /** Código da CONTA institucional que entrou (ex.: AGT-LMM-01), quando difere. */
+  instAgent?: string;
+  demo: boolean;
 }
 
 // Resolve a identidade a partir do token de sessão Supabase.
@@ -1793,8 +1796,14 @@ async function dadosResolverIdentidadeRaw(supaUrl: string, serviceKey: string, t
     if (!['admin', 'instituicao', 'cidadao'].includes(role)) {
       return { erro: 'Identidade ainda não provisionada. Contacte a Administração.' };
     }
+    // 2026-11-20 — a instituição pode ter o código de ÂMBITO (instituicao, ex.:
+    // «AGT-LMM») e não o da CONTA que entrou (agent, ex.: «AGT-LMM-01»). O
+    // cliente grava `instituicao_code` = código da conta; aceitam-se as duas
+    // formas (ambas estão na lista da política RLS) para o INSERT não ser
+    // recusado com 42501 por uma diferença de sufixo.
     const instCode = role === 'instituicao' ? claim(meta.instituicao) : '';
-    const bi = claim(meta.bi) || (role === 'instituicao' ? instCode : role === 'admin' ? claim(meta.agent) : '');
+    const instAgent = role === 'instituicao' ? claim(meta.agent) : '';
+    const bi = claim(meta.bi) || instAgent || instCode || (role === 'admin' ? claim(meta.agent) : '');
     // Nunca permitir que um escopo vazio seja convertido numa consulta global.
     if (!bi || (role === 'instituicao' && !instCode)) {
       return { erro: 'Identidade incompleta. Contacte a Administração.' };
@@ -1804,6 +1813,7 @@ async function dadosResolverIdentidadeRaw(supaUrl: string, serviceKey: string, t
       isAdmin: role === 'admin',
       isInst: role === 'instituicao',
       instCode,
+      instAgent,
       demo: DADOS_DEMO_BIS.includes(bi),
     };
   } catch {
@@ -4589,7 +4599,7 @@ const DADOS_TABELAS: Record<string, {
       // «Inquérito encerrado» em vez de desaparecer) — nunca rascunhos.
       : { or: ['status.eq.ativo', 'status.eq.encerrado'], and: {} },
     injetar: (i, d) => i.isAdmin ? d : i.isInst
-      ? { ...d, instituicao_code: i.instCode || i.bi }
+      ? { ...d, instituicao_code: i.instCode || i.instAgent || i.bi }
       : null, // cidadão nunca cria/edita cabeçalhos
   },
   // Respostas: o cidadão escreve/lê apenas pelo hash (o BI nunca circula em
@@ -4614,8 +4624,12 @@ const DADOS_TABELAS: Record<string, {
       : i.isInst ? { or: [], and: { instituicao_code: i.instCode || i.bi } }
       // cidadão: só sondagens já lançadas (nunca rascunhos) e ainda não encerradas
       : { or: ['status.eq.ativa', 'status.eq.encerrada'], and: {} },
+    // 2026-11-20 — normaliza o código para o ÂMBITO da instituição: se o cliente
+    // enviou o código da conta (AGT-LMM-01) e o token tem o do âmbito (AGT-LMM),
+    // grava-se o do âmbito (é o que a política RLS espera e o que a leitura
+    // por âmbito usa). Sem isto o INSERT era recusado (42501).
     injetar: (i, d) => i.isAdmin ? d : i.isInst
-      ? { ...d, instituicao_code: i.instCode || i.bi }
+      ? { ...d, instituicao_code: i.instCode || i.instAgent || i.bi }
       : null, // cidadão nunca cria nem edita sondagens
   },
   // Respostas: o cidadão escreve/actualiza só as suas (cidadao_bi injectado);

@@ -9,7 +9,7 @@
 //   'sem_migracao' — a UI mostra o selo honesto (fronteira 7.2 da spec).
 // ============================================================================
 import { supabase } from '../lib/supabaseClient';
-import { gravarDados } from './supabaseService';
+import { gravarDados, obterUltimoErroEscrita } from './supabaseService';
 
 export interface OpcaoSondagem { id: string; texto: string; }
 
@@ -48,6 +48,26 @@ export interface SondagemResultado<T> {
   motivo?: SondagemMotivo;
   mensagem?: string;
 }
+
+// 2026-11-20 — MENSAGEM HONESTA DE ESCRITA. A falha de escrita na nuvem tem
+// três causas distintas e antes todas apareciam como o erro cru do PostgREST do
+// INSERT directo: (a) sessão Supabase ausente/expirada, (b) sessão sem papel de
+// instituição, (c) RLS genuinamente a recusar a linha. Distinguem-se aqui.
+const mensagemFalhaEscritaSondagem = (fallback: string): string => {
+  const e = obterUltimoErroEscrita();
+  if (!e) return fallback;
+  if (/^(rede|demo)$/i.test(e)) return 'Sem ligação ao servidor. Verifique a ligação e tente novamente.';
+  if (/Sessão inválida|expirad|401/i.test(e)) {
+    return 'A sua sessão expirou. Termine sessão e volte a entrar com a conta da instituição; depois crie o inquérito.';
+  }
+  if (/sem permiss|403|não tem permissão/i.test(e)) {
+    return 'Esta sessão não tem permissão de instituição para criar inquéritos. Entre com a conta de responsável da instituição.';
+  }
+  if (/row-level security|42501/i.test(e)) {
+    return 'O servidor recusou a gravação do inquérito (política de segurança da base de dados). Actualize a página e tente novamente; se persistir, contacte o administrador.';
+  }
+  return `Não foi possível criar o inquérito (${e}).`;
+};
 
 // ---- Âmbito por categoria (default sugerido; override = tabela/edição futura)
 const RE_NACIONAL =
@@ -236,11 +256,10 @@ export const criarRascunhoSondagem = async (params: {
     );
     const criada = Array.isArray(viaProxy) && viaProxy[0] ? (viaProxy[0] as Sondagem) : null;
     if (!criada) {
-      const { error } = await supabase.from('sondagens').insert(linha).select().single();
-      return {
-        ok: false, motivo: 'erro',
-        mensagem: (error as Error)?.message || 'Não foi possível criar a sondagem.',
-      };
+      // 2026-11-20 — NUNCA repetir o INSERT directo aqui: sem sessão ele falha
+      // com «new row violates row-level security policy for table "sondagens"»
+      // e essa mensagem (do 2.º caminho) escondia a causa real (a 1.ª falha).
+      return { ok: false, motivo: 'erro', mensagem: mensagemFalhaEscritaSondagem('Não foi possível criar o inquérito.') };
     }
     return { ok: true, dados: criada };
   } catch (e: unknown) {
@@ -251,12 +270,22 @@ export const criarRascunhoSondagem = async (params: {
 /** Remove um rascunho (só rascunhos — v37 §1.4). */
 export const removerRascunhoSondagem = async (sondagemId: number): Promise<SondagemResultado<null>> => {
   try {
+    // 2026-11-20 — o DELETE directo era bloqueado pela RLS (rascunhos só são
+    // visíveis ao dono) e o rascunho ficava na base. Vai pelo proxy.
+    const viaProxy = await gravarDados<unknown>(
+      'sondagens', 'delete', { id: sondagemId }, undefined, undefined,
+      async () => {
+        const { data } = await supabase.from('sondagens').delete().eq('id', sondagemId).eq('status', 'rascunho').select();
+        return data as unknown;
+      },
+    );
+    if (viaProxy) return { ok: true, dados: null };
     const { error } = await supabase
       .from('sondagens')
       .delete()
       .eq('id', sondagemId)
       .eq('status', 'rascunho');
-    if (error) return { ok: false, motivo: 'erro', mensagem: error.message };
+    if (error) return { ok: false, motivo: 'erro', mensagem: mensagemFalhaEscritaSondagem(error.message) };
     return { ok: true, dados: null };
   } catch (e: unknown) {
     return { ok: false, motivo: 'erro', mensagem: String((e as Error)?.message || e) };
@@ -433,11 +462,17 @@ export const distribuirSondagensCompostas = async (params: {
     if (bis.length === 0 && aud.dados.bis.length === 0) return { ok: false, motivo: 'audiencia_vazia' };
 
     // Ativa rascunhos + regista contagem real (melhor esforço por sondagem)
+    // 2026-11-20 — via proxy (a RLS esconde rascunhos ao UPDATE directo, que
+    // falhava aqui em silêncio e deixava a sondagem em «rascunho»).
+    const patchAtivar = { status: 'ativa', abrangencia: classificacao, audiencia_total: bis.length, destinatarios: bis.length };
     for (const s of params.sondagens) {
-      await supabase
-        .from('sondagens')
-        .update({ status: 'ativa', abrangencia: classificacao, audiencia_total: bis.length, destinatarios: bis.length })
-        .eq('id', s.id);
+      await gravarDados<unknown>(
+        'sondagens', 'update', { id: s.id }, patchAtivar, undefined,
+        async () => {
+          const { data } = await supabase.from('sondagens').update(patchAtivar).eq('id', s.id).select('id,status');
+          return data as unknown;
+        },
+      );
     }
 
     const multiplas = params.sondagens.length > 1;

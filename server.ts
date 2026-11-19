@@ -511,6 +511,17 @@ const DADOS_COLUNAS: Record<string, Record<string, boolean>> = {
     id: true, inquerito_id: true, cidadao_bi_hash: true, estado: true, historico: true, campos: true,
     canal_usado: true, n_perguntas: true, iniciado_em: true, actualizado_em: true, concluido_em: true,
   },
+  // 2026-11-20 — Sondagem manual (v36/v37). Faltavam por completo neste
+  // espelho Express: criar responder/activar uma sondagem em `npm run dev`
+  // era recusado com «Tabela desconhecida». Manter sincronizado com api/index.ts.
+  sondagens: {
+    id: true, instituicao_code: true, instituicao_nome: true, pergunta: true,
+    opcoes: true, permitir_varias: true, status: true, abrangencia: true,
+    audiencia_total: true, criada_por: true, created_at: true, destinatarios: true,
+  },
+  sondagem_respostas: {
+    id: true, sondagem_id: true, cidadao_bi: true, escolhas: true, updated_at: true, created_at: true,
+  },
   contacts: { id: true, owner_bi: true, name: true, bi: true, relation: true, status: true, type: true, phone: true, whatsapp: true, email: true }, // v35 — email opcional (difusão de emergência)
   notifications: { id: true, target_bi: true, title: true, message: true, time_text: true, type: true, target_tab: true, read_at: true, dedupe_key: true },
   user_requests: { id: true, user_bi: true, user_name: true, service_type: true, priority: true, time_text: true, status: true, institution: true, request_date: true },
@@ -541,7 +552,10 @@ const DADOS_COLUNAS: Record<string, Record<string, boolean>> = {
 
 interface DadosIdentidade {
   bi: string; email: string; role: string;
-  isAdmin: boolean; isInst: boolean; instCode: string; demo: boolean;
+  isAdmin: boolean; isInst: boolean; instCode: string;
+  /** Código da CONTA institucional que entrou (ex.: AGT-LMM-01), quando difere. */
+  instAgent?: string;
+  demo: boolean;
 }
 
 // Autorização de objectos de Storage (2026-11-16): o servidor assina/escreve
@@ -737,6 +751,28 @@ const DADOS_TABELAS: Record<string, {
     escopo: () => ({ or: [], and: {} }),
     injetar: (_i, d) => d,
   },
+  // 2026-11-20 — Sondagem manual (v36/v37): mesmo contrato do proxy de
+  // produção (api/index.ts). A instituição só toca no seu âmbito; o cidadão
+  // nunca cria nem edita cabeçalhos e só vê sondagens já lançadas.
+  sondagens: {
+    select: true, insert: true, update: true, delete: true, upsert: false,
+    escopo: (i) => i.isAdmin ? { or: [], and: {} }
+      : i.isInst ? { or: [], and: { instituicao_code: i.instCode || i.bi } }
+      : { or: ['status.eq.ativa', 'status.eq.encerrada'], and: {} },
+    injetar: (i, d) => i.isAdmin ? d : i.isInst
+      ? { ...d, instituicao_code: i.instCode || i.instAgent || i.bi }
+      : null,
+  },
+  sondagem_respostas: {
+    select: true, insert: true, update: true, delete: false, upsert: true,
+    escopo: (i) => i.isAdmin ? { or: [], and: {} }
+      : i.isInst
+        ? { or: [], and: {} }
+        : { or: [], and: { cidadao_bi: i.bi || '' } },
+    injetar: (i, d) => i.isAdmin ? d
+      : (!i.isInst && i.bi) ? { ...d, cidadao_bi: i.bi }
+      : null,
+  },
 };
 
 // Resolve a identidade a partir do token de sessão Supabase.
@@ -805,8 +841,12 @@ async function dadosResolverIdentidadeRaw(supaUrl: string, serviceKey: string, t
     if (!['admin', 'instituicao', 'cidadao'].includes(role)) {
       return { erro: 'Identidade ainda não provisionada. Contacte a Administração.' };
     }
+    // 2026-11-20 — a conta que entra é `agent` (ex.: AGT-LMM-01); `instituicao`
+    // é o código de ÂMBITO (ex.: AGT-LMM). Aceitam-se as duas formas, como na
+    // política RLS, para o INSERT não ser recusado por diferença de sufixo.
     const instCode = role === 'instituicao' ? claim(meta.instituicao) : '';
-    const bi = claim(meta.bi) || (role === 'instituicao' ? instCode : role === 'admin' ? claim(meta.agent) : '');
+    const instAgent = role === 'instituicao' ? claim(meta.agent) : '';
+    const bi = claim(meta.bi) || instAgent || instCode || (role === 'admin' ? claim(meta.agent) : '');
     // Nunca permitir que um escopo vazio seja convertido numa consulta global.
     if (!bi || (role === 'instituicao' && !instCode)) {
       return { erro: 'Identidade incompleta. Contacte a Administração.' };
@@ -816,6 +856,7 @@ async function dadosResolverIdentidadeRaw(supaUrl: string, serviceKey: string, t
       isAdmin: role === 'admin',
       isInst: role === 'instituicao',
       instCode,
+      instAgent,
       demo: DADOS_DEMO_BIS.includes(bi),
     };
   } catch {
@@ -838,6 +879,10 @@ function dadosSanitizarFiltros(tabela: string, filtros: any): Record<string, str
 const DADOS_JSONB: Record<string, Record<string, boolean>> = {
   inqueritos_ia: { guiao: true },
   inquerito_ia_respostas: { historico: true, campos: true },
+  // 2026-11-20 — Sondagem manual (v36/v37): as opções são JSONB; sem esta
+  // entrada o servidor de desenvolvimento descartava-as e a sondagem ficava
+  // sem escolhas (espelho de api/index.ts — manter sincronizado).
+  sondagens: { opcoes: true },
 };
 
 function dadosSanitizarLinha(tabela: string, linha: any): Record<string, any> | null {

@@ -824,10 +824,74 @@ export const enviarMensagemAdministrativa = async (
 let dadosTokenCache: string | null = null;
 let dadosTokenCacheTs = 0;
 
+/** `true` quando o access_token já expirou (ou é ilegível) — margem de 30 s. */
+const tokenExpirado = (token: string): boolean => {
+  try {
+    const payload = token.split('.')[1] || '';
+    const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const json = JSON.parse(atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4)));
+    const exp = Number(json?.exp || 0);
+    if (!exp) return true;
+    return Date.now() / 1000 > exp - 30;
+  } catch {
+    return true;
+  }
+};
+
+/** 2026-11-20 — SESSÃO DA INSTITUIÇÃO: quando a sessão Auth desapareceu (login
+ *  de emergência local, token removido/revogado, aba reaberta), a escrita na
+ *  nuvem tem de continuar a funcionar. Reautentica com as credenciais da
+ *  instituição já validadas neste dispositivo (mesmo mecanismo do login:
+ *  cloudSignIn) e devolve um access_token fresco. Sem credenciais (conta demo)
+ *  devolve null e o chamador decide. */
+let ultimaRecuperacaoInst = 0;
+const recuperarSessaoInstituicao = async (): Promise<string | null> => {
+  // uma tentativa por minuto, no máximo: evita rajadas de logins em picos de rede
+  if (Date.now() - ultimaRecuperacaoInst < 60_000) return null;
+  ultimaRecuperacaoInst = Date.now();
+  if (!hasValidSupabaseKeys()) return null;
+  try {
+    let ident: { code?: string; password?: string } | null = null;
+    try {
+      const bruto = localStorage.getItem('cda_inst_identity');
+      if (bruto) {
+        const parsed = JSON.parse(bruto) as { code?: string; password?: string };
+        if (parsed?.code && parsed?.password) ident = parsed;
+      }
+    } catch { /* credencial ilegível */ }
+    if (!ident?.code || !ident?.password) return null;
+    const marca = (() => {
+      try { return JSON.parse(localStorage.getItem('cda_cloud_accounts_v1') || '{}'); } catch { return {}; }
+    })() as Record<string, { email?: string }>;
+    const email = marca?.[String(ident.code).toUpperCase()]?.email
+      || `agente.${String(ident.code).toLowerCase()}@inst.correiodigital.ao`;
+    const r = await cloudSignIn(supabase, email, String(ident.password));
+    if (r.outcome !== 'ok') return null;
+    let { data } = await supabase.auth.getSession();
+    // 2026-11-20 — sessão nula mas ainda com refresh token: renova aqui mesmo
+    // (antes, o pedido seguia sem Authorization e a RLS recusava a escrita).
+    if (!data?.session?.access_token) {
+      const renovada = await supabase.auth.refreshSession().catch(() => null);
+      if (renovada?.data?.session?.access_token) data = renovada.data as typeof data;
+    }
+    const tok = data?.session?.access_token || null;
+    if (tok) {
+      dadosTokenCache = tok;
+      dadosTokenCacheTs = Date.now();
+    }
+    return tok;
+  } catch {
+    return null;
+  }
+};
+
 const obterTokenSessao = async (): Promise<string | null> => {
   try {
     const agora = Date.now();
-    if (dadosTokenCache && agora - dadosTokenCacheTs < 60_000) return dadosTokenCache;
+    // 2026-11-20 — o cache só serve enquanto o token NÃO estiver expirado: um
+    // access_token guardado até ao limite fazia o proxy recusar com 401 e a
+    // escrita caía no INSERT directo anónimo (erro de RLS enganador).
+    if (dadosTokenCache && agora - dadosTokenCacheTs < 60_000 && !tokenExpirado(dadosTokenCache)) return dadosTokenCache;
     const { data } = await supabase.auth.getSession();
     const tok = data?.session?.access_token || null;
     // 2026-09-22 (PISCA-de-correspondência) — NUNCA memorizar `null`: quando o
@@ -873,7 +937,8 @@ export const lerLinhasDados = async <T,>(
   direto: () => Promise<T[] | null>,
   extra?: ExtrasLeitura,
 ): Promise<T[] | null> => {
-  const token = await obterTokenSessao();
+  let token = await obterTokenSessao();
+  if (!token) token = await recuperarSessaoInstituicao();
   if (!token) {
     // 2026-09-23 (PISCA / Falso Vazio) — tabelas com leitura pública ou ambiente
     // sem chaves (demo/dev local) usam o caminho directo.
@@ -909,7 +974,9 @@ export const gravarDados = async <T,>(
   extra: { upsert?: boolean; onConflict?: string; retorno?: boolean; isNull?: string[] } | undefined,
   direto: () => Promise<T | null>,
 ): Promise<T | null> => {
-  const token = await obterTokenSessao();
+  let token = await obterTokenSessao();
+  if (!token) token = await recuperarSessaoInstituicao();
+  if (!token) token = await restaurarSessaoAdminNuvem();
   if (!token) return direto();
   const r = await proxyDados({ tabela, operacao, filtros: filtros || {}, dados: dados ?? {}, ...(extra || {}) });
   if (r && r.ok) {
