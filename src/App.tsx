@@ -8278,7 +8278,16 @@ Ficha civil do titular:
       setFaceCaptureHint('Rosto ainda não registado para esta identidade.');
       // v37.78.39 — mensagem melhorada a pedido do dono (2026-08-31): diz
       // exactamente O QUE falta fazer e COMO activar o Login Facial.
-      setFaceCaptureError('Ainda não existe registo facial para esta identidade. Entre com as suas credenciais (BI e senha), abra a página Conta (Perfil) e toque em «Registar a minha face» — a partir daí o Login Facial reconhece-o e o senhor entra apenas com o rosto.');
+      // 2026-11-15 — MENSAGEM HONESTA: antes dizia «não existe registo facial para
+      // esta identidade» mesmo quando o registo estava guardado NA PLATAFORMA
+      // (autorizado pelo titular) — só não era consultável sem sessão. O
+      // utilizador ficava a achar que o registo tinha desaparecido.
+      setFaceCaptureError(
+        'Este navegador não tem o seu rosto guardado. Se autorizou guardar o registo na plataforma, '
+        + 'entre primeiro com o B.I. e a palavra-passe — a partir desse momento o rosto fica disponível '
+        + 'neste navegador e o Login Facial passa a funcionar. Se nunca autorizou, abra Conta (Perfil) → '
+        + 'Login Facial → «Registar a minha face».'
+      );
       addAuditLog(`DEMO_FACE_NO_TEMPLATE: login facial tentado sem registo na página Conta (${appMode}; 0 registos no dispositivo)`, 'info');
     };
 
