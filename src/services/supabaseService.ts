@@ -852,13 +852,32 @@ const recuperarSessaoInstituicao = async (): Promise<string | null> => {
   if (!hasValidSupabaseKeys()) return null;
   try {
     let ident: { code?: string; password?: string } | null = null;
+    // A credencial da instituição validada neste dispositivo está no registo
+    // local da instituição (cda_inst_regs_v1), o mesmo que valida o login:
+    // guarda o código e a senha do responsável. `cda_inst_identity` só tem o
+    // colaborador (sem senha) — serve de último recurso.
+    let codeSessao = '';
     try {
-      const bruto = localStorage.getItem('cda_inst_identity');
-      if (bruto) {
-        const parsed = JSON.parse(bruto) as { code?: string; password?: string };
-        if (parsed?.code && parsed?.password) ident = parsed;
-      }
-    } catch { /* credencial ilegível */ }
+      const identJson = JSON.parse(localStorage.getItem('cda_inst_identity') || '{}') as { code?: string };
+      codeSessao = String(identJson?.code || '').trim().toUpperCase();
+    } catch { /* sem identidade */ }
+    try {
+      const regs = JSON.parse(localStorage.getItem('cda_inst_regs_v1') || '[]') as Array<{ code?: string; password?: string }>;
+      const alvo = Array.isArray(regs)
+        ? (regs.find((r) => codeSessao && String(r?.code || '').trim().toUpperCase() === codeSessao)
+          || regs.find((r) => /^[A-Z0-9]+(-[A-Z0-9]+)+$/i.test(String(r?.code || '').trim())))
+        : null;
+      if (alvo?.code && alvo?.password) ident = { code: String(alvo.code), password: String(alvo.password) };
+    } catch { /* registos ilegíveis */ }
+    if (!ident) {
+      try {
+        const bruto = localStorage.getItem('cda_inst_identity');
+        if (bruto) {
+          const parsed = JSON.parse(bruto) as { code?: string; password?: string };
+          if (parsed?.code && parsed?.password) ident = parsed;
+        }
+      } catch { /* credencial ilegível */ }
+    }
     if (!ident?.code || !ident?.password) return null;
     const marca = (() => {
       try { return JSON.parse(localStorage.getItem('cda_cloud_accounts_v1') || '{}'); } catch { return {}; }
@@ -977,7 +996,13 @@ export const gravarDados = async <T,>(
   let token = await obterTokenSessao();
   if (!token) token = await recuperarSessaoInstituicao();
   if (!token) token = await restaurarSessaoAdminNuvem();
-  if (!token) return direto();
+  if (!token) {
+    // 2026-11-20 — sem sessão Supabase mas COM o projecto configurado: o
+    // INSERT directo vai ser recusado pela RLS. Regista-se a causa para a
+    // mensagem ao utilizador ser «sessão expirada» e não o erro cru da base.
+    if (hasValidSupabaseKeys()) ultimoErroEscrita = 'sem_sessao';
+    return direto();
+  }
   const r = await proxyDados({ tabela, operacao, filtros: filtros || {}, dados: dados ?? {}, ...(extra || {}) });
   if (r && r.ok) {
     ultimoErroEscrita = null;

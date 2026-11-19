@@ -57,6 +57,9 @@ const mensagemFalhaEscritaSondagem = (fallback: string): string => {
   const e = obterUltimoErroEscrita();
   if (!e) return fallback;
   if (/^(rede|demo)$/i.test(e)) return 'Sem ligação ao servidor. Verifique a ligação e tente novamente.';
+  if (/^sem_sessao$/.test(e)) {
+    return 'A sua sessão de nuvem expirou. Termine sessão e volte a entrar com a conta da instituição; depois crie o inquérito.';
+  }
   if (/Sessão inválida|expirad|401/i.test(e)) {
     return 'A sua sessão expirou. Termine sessão e volte a entrar com a conta da instituição; depois crie o inquérito.';
   }
