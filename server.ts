@@ -2230,6 +2230,64 @@ async function purgarResiduosContaNova(supaUrl: string, serviceKey: string, chav
   });
 
   // ============================================================================
+  // REPOSIÇÃO ASSISTIDA DE PALAVRA-PASSE (2026-11-15)
+  // ----------------------------------------------------------------------------
+  // A via que a app promete no ecrã «Redefinir Senha» para contas cujo único
+  // e-mail é TÉCNICO (bi.<bi>@cidadao.correiodigital.ao, agente.*@inst|admin…):
+  // esses domínios não recebem correio e o mailer do Supabase RECUSA-os
+  // («email_address_invalid»), pelo que o link nunca chega. Só o ADMIN real
+  // (ADMIN-0001) repõe a senha de OUTRA conta; a acção vai para audit_logs.
+  // ============================================================================
+  app.post("/api/repor-senha", async (req, res) => {
+    try {
+      const admin = createSupabaseAdminClient();
+      if (!admin) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+      const { bi, senha } = req.body || {};
+      const alvoNorm = String(bi || '').trim().toUpperCase().replace(/\s+/g, '');
+      if (!/^[A-Z0-9][A-Z0-9.\-]{3,29}$/.test(alvoNorm)) return res.status(400).json({ ok: false, erro: 'Identificador inválido.' });
+      if (typeof senha !== 'string' || senha.length < 8) return res.status(400).json({ ok: false, erro: 'A senha deve ter pelo menos 8 caracteres.' });
+      const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+      if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+      const { data: sess, error: sessErr } = await admin.auth.getUser(token);
+      if (sessErr || !sess?.user) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+      const meta = (sess.user.app_metadata || {}) as any;
+      const roleCaller = String(meta.role || '').toLowerCase();
+      const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
+      if (roleCaller !== 'admin' || agentCaller !== 'ADMIN-0001') {
+        return res.status(403).json({ ok: false, erro: 'Apenas a Administração (ADMIN-0001) pode repor a palavra-passe de outra conta.' });
+      }
+      if (alvoNorm === agentCaller) return res.status(400).json({ ok: false, erro: 'Use o popup de segurança do seu próprio perfil.' });
+      let emailAlvo = '';
+      if (/^\d{9}[A-Z]{2}\d{3}$/.test(alvoNorm)) emailAlvo = `bi.${alvoNorm.toLowerCase()}@cidadao.correiodigital.ao`;
+      else if (/^ADMIN-\d+$/.test(alvoNorm)) emailAlvo = `agente.${alvoNorm.toLowerCase()}@admin.correiodigital.ao`;
+      else if (/^[A-Z]{3}-[A-Z0-9]+-\d+$/.test(alvoNorm)) emailAlvo = `agente.${alvoNorm.toLowerCase()}@inst.correiodigital.ao`;
+      else return res.status(400).json({ ok: false, erro: 'Identificador sem conta de nuvem reconhecida.' });
+      let alvoId: string | null = null;
+      for (let pagina = 1; pagina <= 10 && !alvoId; pagina++) {
+        const { data: lista } = await admin.auth.admin.listUsers({ page: pagina, perPage: 200 });
+        const users = lista?.users || [];
+        if (!users.length) break;
+        const achado = users.find((u: any) => String(u.email || '').toLowerCase() === emailAlvo);
+        if (achado) alvoId = achado.id;
+      }
+      if (!alvoId) return res.status(404).json({ ok: false, erro: 'Esta conta ainda não tem credencial na nuvem.' });
+      const { error: updErr } = await admin.auth.admin.updateUserById(alvoId, { password: senha });
+      if (updErr) return res.status(500).json({ ok: false, erro: updErr.message });
+      try {
+        await admin.from('audit_logs').insert([{
+          action: `[ADMIN] Reposição assistida de palavra-passe para ${alvoNorm} (conta sem e-mail entregável) — o titular deve definir uma nova no Perfil.`,
+          type: 'warning',
+          user: agentCaller,
+        }]);
+      } catch { /* auditoria best-effort */ }
+      return res.status(200).json({ ok: true, alvo: alvoNorm, email: emailAlvo });
+    } catch (e: any) {
+      console.error('[REPOR-SENHA] Exceção:', e);
+      return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+    }
+  });
+
+  // ============================================================================
   // PERMISSÕES DE PÁGINA DO AGENTE (2026-08-22)
   // ----------------------------------------------------------------------------
   // As páginas que cada colaborador/agente pode abrir vivem nos app_metadata

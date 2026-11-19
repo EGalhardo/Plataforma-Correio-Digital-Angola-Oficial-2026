@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { notify } from '../../lib/notify';
 import { shouldUseMockFallback } from '../../config/runtime';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { History } from 'lucide-react';
 import { carregarDadosReaisAdmin, fmtDataCurta, type AdminRealData } from '../../services/adminRealDataService';
 import { hasValidSupabaseKeys } from '../../services/supabaseService';
+import { supabase } from '../../lib/supabaseClient';
 import {
   ShieldCheck,
   Scan,
@@ -157,6 +158,43 @@ export function GovSegurancaContent({
     const matchesType = filterType === 'Todos' || user.type === filterType;
     return matchesSearch && matchesType;
   });
+
+  // 2026-11-15 — REPOSIÇÃO ASSISTIDA: as contas cujo único e-mail é técnico
+  // (bi.<bi>@cidadao… / agente.*@inst|admin…) NÃO conseguem receber o link de
+  // recuperação de palavra-passe — o domínio não tem correio e o mailer do
+  // Supabase recusa-o. A Administração passa a poder repor a senha por aqui;
+  // o titular define depois a sua própria no Perfil → Segurança.
+  const [senhaRepor, setSenhaRepor] = useState<{ utilizador: BiometricUser; valor: string; aGravar: boolean; msg: string } | null>(null);
+
+  const abrirReposicaoSenha = (u: BiometricUser) => {
+    setSenhaRepor({ utilizador: u, valor: '', aGravar: false, msg: '' });
+  };
+
+  const confirmarReposicaoSenha = async () => {
+    if (!senhaRepor) return;
+    const senha = senhaRepor.valor;
+    if (senha.length < 8) { setSenhaRepor({ ...senhaRepor, msg: 'A palavra-passe temporária deve ter pelo menos 8 caracteres.' }); return; }
+    setSenhaRepor({ ...senhaRepor, aGravar: true, msg: '' });
+    try {
+      const { data: sessao } = await supabase.auth.getSession();
+      const token = sessao?.session?.access_token || null;
+      if (!token) { setSenhaRepor(prev => prev ? { ...prev, aGravar: false, msg: 'Sessão expirada — volte a entrar na Administração.' } : prev); return; }
+      const r = await fetch('/api/repor-senha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ bi: senhaRepor.utilizador.docId, senha }),
+      });
+      const j = await r.json().catch(() => null);
+      if (j && j.ok === true) {
+        notify(`Palavra-passe de ${senhaRepor.utilizador.name} reposta. Comunique a senha temporária ao titular — ele deve alterá-la no Perfil → Segurança.`);
+        setSenhaRepor(null);
+        return;
+      }
+      setSenhaRepor(prev => prev ? { ...prev, aGravar: false, msg: (j && j.erro) || `Não foi possível repor (HTTP ${r.status}).` } : prev);
+    } catch {
+      setSenhaRepor(prev => prev ? { ...prev, aGravar: false, msg: 'Rede indisponível — tente novamente.' } : prev);
+    }
+  };
 
   const handleStatusChange = (userId: string, newStatus: 'Ativo' | 'Pendente' | 'Bloqueado') => {
     if (dadosReais) {
@@ -615,6 +653,17 @@ export function GovSegurancaContent({
                         </td>
                         <td className="py-4 px-5 text-center">
                           <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            <button
+                                data-testid={`repor-senha-${user.docId}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  abrirReposicaoSenha(user);
+                                }}
+                                className="py-1 px-2.5 bg-white border border-slate-200 hover:border-indigo-500 rounded-lg text-indigo-700 hover:text-indigo-900 text-[9.5px] font-black uppercase tracking-wider cursor-pointer transition-colors"
+                                title="Repor palavra-passe (contas sem e-mail entregável)"
+                              >
+                              Repor senha
+                            </button>
                             {user.status === 'Bloqueado' ? (
                               <button
                                 onClick={(e) => {
@@ -895,6 +944,57 @@ export function GovSegurancaContent({
           </div>
         </motion.div>
       )}
+
+      {/* REPOSIÇÃO ASSISTIDA DE PALAVRA-PASSE — contas com e-mail técnico
+          (sem correio) não recebem o link de recuperação; a Administração
+          repõe aqui uma senha temporária que o titular troca no Perfil. */}
+      <AnimatePresence>
+      {senhaRepor && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[28px] w-full max-w-md p-6 border border-slate-100 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.18)] text-left" data-testid="modal-repor-senha">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-11 h-11 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                <FileLock2 size={18} />
+              </div>
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-tight text-[#0c2340] leading-tight">Repor palavra-passe</h3>
+                <p className="text-[9px] text-[#2563eb] font-extrabold uppercase tracking-widest mt-1">{senhaRepor.utilizador.docId}</p>
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-500 font-semibold leading-snug mb-3">
+              {senhaRepor.utilizador.name} passa a entrar com esta senha temporária e deve alterá-la em Perfil → Segurança.
+            </p>
+            <input
+              type="text"
+              data-testid="campo-senha-temporaria"
+              value={senhaRepor.valor}
+              onChange={(e) => setSenhaRepor({ ...senhaRepor, valor: e.target.value })}
+              placeholder="Senha temporária (mín. 8 caracteres)"
+              className="w-full h-11 bg-white border border-slate-200 focus:border-indigo-500 rounded-xl px-4 text-xs font-semibold outline-none transition-all"
+            />
+            {senhaRepor.msg && (
+              <p data-testid="repor-senha-erro" className="text-[11px] text-red-600 font-black bg-red-50 border border-red-200 rounded-xl px-3 py-2 mt-2">{senhaRepor.msg}</p>
+            )}
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={() => setSenhaRepor(null)}
+                className="flex-1 py-2.5 bg-white border border-slate-200 text-slate-700 text-[10px] font-black uppercase tracking-widest rounded-xl cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarReposicaoSenha}
+                disabled={senhaRepor.aGravar}
+                data-testid="confirmar-repor-senha"
+                className="flex-1 py-2.5 bg-[#0E2B64] text-white text-[10px] font-black uppercase tracking-widest rounded-xl cursor-pointer border-0 disabled:opacity-60"
+              >
+                {senhaRepor.aGravar ? 'A repor…' : 'Repor senha'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </AnimatePresence>
     </div>
   );
 }

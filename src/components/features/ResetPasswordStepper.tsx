@@ -169,6 +169,10 @@ export function ResetPasswordStepper({ onCancel, onSuccess, addAuditLog, appMode
                 <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest leading-none mt-0.5">
                   Receba um link de recuperação no seu e-mail
                 </p>
+                <p className="text-[10px] text-slate-500 font-semibold leading-snug pt-2">
+                  Só tem B.I.? Indique o e-mail que associou no Perfil. Se a conta ainda usa o e-mail técnico interno,
+                  peça a <strong>reposição assistida à Administração</strong> (Área de Administração → Segurança → Repor senha).
+                </p>
               </div>
 
               <div className="max-w-lg mx-auto w-full space-y-1.5">

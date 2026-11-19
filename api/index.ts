@@ -3960,6 +3960,79 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
       }
     }
 
+    // REPOSIÇÃO ASSISTIDA DE PALAVRA-PASSE (2026-11-15) — a via que a app
+    // promete no ecrã «Redefinir Senha» para as contas cujo único e-mail é
+    // TÉCNICO (bi.<bi>@cidadao.correiodigital.ao / agente.*@inst|admin...):
+    // esses domínios não têm correio (nem MX), e o mailer do Supabase RECUSA-os
+    // («email_address_invalid»), pelo que o link de recuperação nunca chega.
+    // Só o ADMIN real (ADMIN-0001) pode repor a senha de OUTRA conta, e a acção
+    // fica registada em audit_logs. O titular troca-a depois no Perfil.
+    if (url.includes('/api/repor-senha') && method === 'POST') {
+      try {
+        if (!supaUrlPerfil || !serviceKeyPerfil) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+        const { bi, senha } = body || {};
+        const alvoNorm = String(bi || '').trim().toUpperCase().replace(/\s+/g, '');
+        if (!/^[A-Z0-9][A-Z0-9.\-]{3,29}$/.test(alvoNorm)) return res.status(400).json({ ok: false, erro: 'Identificador inválido.' });
+        if (typeof senha !== 'string' || senha.length < 8) return res.status(400).json({ ok: false, erro: 'A senha deve ter pelo menos 8 caracteres.' });
+        const token = String(req.headers.authorization || (req.headers as any).Authorization || '').replace(/^Bearer\s+/i, '').trim();
+        if (!token) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+        const sessResp = await fetch(`${supaUrlPerfil}/auth/v1/user`, {
+          headers: { apikey: serviceKeyPerfil, Authorization: `Bearer ${token}` },
+        });
+        if (!sessResp.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+        const sess = await sessResp.json().catch(() => null);
+        const user = sess && (sess.user || sess);
+        const meta = (user && user.app_metadata) || {};
+        const roleCaller = String(meta.role || '').toLowerCase();
+        const agentCaller = String(meta.agent || '').trim().toUpperCase().replace(/\s+/g, '');
+        if (roleCaller !== 'admin' || agentCaller !== 'ADMIN-0001') {
+          return res.status(403).json({ ok: false, erro: 'Apenas a Administração (ADMIN-0001) pode repor a palavra-passe de outra conta.' });
+        }
+        if (alvoNorm === agentCaller) return res.status(400).json({ ok: false, erro: 'Use o popup de segurança do seu próprio perfil para alterar a sua senha.' });
+        // e-mail sintético determinístico conforme o tipo de conta
+        let emailAlvo = '';
+        if (/^\d{9}[A-Z]{2}\d{3}$/.test(alvoNorm)) emailAlvo = `bi.${alvoNorm.toLowerCase()}@cidadao.correiodigital.ao`;
+        else if (/^ADMIN-\d+$/.test(alvoNorm)) emailAlvo = `agente.${alvoNorm.toLowerCase()}@admin.correiodigital.ao`;
+        else if (/^[A-Z]{3}-[A-Z0-9]+-\d+$/.test(alvoNorm)) emailAlvo = `agente.${alvoNorm.toLowerCase()}@inst.correiodigital.ao`;
+        else return res.status(400).json({ ok: false, erro: 'Identificador sem conta de nuvem reconhecida (esperado B.I., Nº de agente ou ADMIN-NNNN).' });
+        const h = { apikey: serviceKeyPerfil, Authorization: `Bearer ${serviceKeyPerfil}` };
+        let alvoId = null;
+        let alvoEmail = emailAlvo;
+        for (let pagina = 1; pagina <= 10 && !alvoId; pagina++) {
+          const lu = await fetch(`${supaUrlPerfil}/auth/v1/admin/users?per_page=200&page=${pagina}`, { headers: h });
+          if (!lu.ok) break;
+          const lista = await lu.json().catch(() => null);
+          const users = lista?.users || [];
+          if (!users.length) break;
+          const achado = users.find((u: any) => String(u.email || '').toLowerCase() === emailAlvo);
+          if (achado) { alvoId = achado.id; alvoEmail = achado.email; }
+        }
+        if (!alvoId) return res.status(404).json({ ok: false, erro: 'Esta conta ainda não tem credencial na nuvem — o titular entra com a senha local e define a nova no Perfil.' });
+        const upd = await fetch(`${supaUrlPerfil}/auth/v1/admin/users/${alvoId}`, {
+          method: 'PUT',
+          headers: { ...h, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: senha }),
+        });
+        if (!upd.ok) return res.status(500).json({ ok: false, erro: (await upd.text()).slice(0, 200) });
+        try {
+          await fetch(`${supaUrlPerfil}/rest/v1/audit_logs`, {
+            method: 'POST',
+            headers: { ...h, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+            body: JSON.stringify([{
+              action: `[ADMIN] Reposição assistida de palavra-passe para ${alvoNorm} (conta sem e-mail entregável) — o titular deve definir uma nova no Perfil.`,
+              type: 'warning',
+              user: agentCaller,
+              timestamp: new Date().toISOString(),
+            }]),
+          });
+        } catch { /* auditoria best-effort */ }
+        return res.status(200).json({ ok: true, alvo: alvoNorm, email: alvoEmail });
+      } catch (e: any) {
+        console.error('[REPOR-SENHA] Exceção:', e);
+        return res.status(500).json({ ok: false, erro: String(e).slice(0, 200) });
+      }
+    }
+
     // PERMISSÕES DE PÁGINA DO AGENTE (2026-08-22) — espelho de server.ts:
     // fonte canónica = app_metadata no Auth (só editável pelo service role);
     // gravar só é aceite do responsável da área (instituição '-01' / Alfa
