@@ -3961,20 +3961,64 @@ A primeira imagem é a FRENTE e a segunda é o VERSO. Analise e responda APENAS 
     }
 
     // TEMPLATE FACIAL NA PLATAFORMA (2026-11-15) — opt-in do titular.
-    // O ecrã afirma hoje «a biometria nunca sai do dispositivo»; a partir do
-    // momento em que o titular ACEITA guardar o registo na plataforma, essa
-    // frase deixa de ser verdade e passa a haver sincronização. Guarda-se só o
-    // VETOR (nunca a fotografia) e a rota só aceita a identidade do próprio
-    // token — ver src/services/faceTemplateService.ts.
+    // Só a identidade do PRÓPRIO token pode ler/gravar o seu descritor; a
+    // tabela tem RLS ligado e zero políticas (acesso exclusivo por aqui).
+    // Guarda-se o VETOR, nunca a fotografia.
     if (url.includes('/api/face-template') && method === 'POST') {
-      const { tratarFaceTemplate } = await import('../src/services/faceTemplateService');
-      const r = await tratarFaceTemplate(
-        (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim(),
-        (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '').trim(),
-        { ...(body || {}), token: String(req.headers.authorization || (req.headers as any).Authorization || '').replace(/^Bearer\s+/i, '').trim() },
-      );
-      const { status, ...resto } = r;
-      return res.status(status).json(resto);
+      try {
+        const supaUrlFace = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').trim();
+        const serviceKeyFace = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || '').trim();
+        if (!supaUrlFace || !serviceKeyFace) return res.status(500).json({ ok: false, erro: 'Serviço indisponível.' });
+        const tokenFace = String(req.headers.authorization || (req.headers as any).Authorization || '').replace(/^Bearer\s+/i, '').trim();
+        if (!tokenFace) return res.status(401).json({ ok: false, erro: 'Sessão obrigatória.' });
+        const hFace = { apikey: serviceKeyFace, Authorization: `Bearer ${serviceKeyFace}` };
+        const rU = await fetch(`${supaUrlFace}/auth/v1/user`, { headers: { apikey: serviceKeyFace, Authorization: `Bearer ${tokenFace}` } });
+        if (!rU.ok) return res.status(401).json({ ok: false, erro: 'Sessão inválida.' });
+        const uSess = await rU.json().catch(() => null);
+        const uu = uSess?.user || uSess;
+        const metaU = { ...(uu?.app_metadata || {}), ...(uu?.user_metadata || {}) };
+        const papelU = String(metaU.role || '').toLowerCase();
+        const biU = String(metaU.bi || '').trim().toUpperCase().replace(/\s+/g, '');
+        const agU = String(metaU.agent || '').trim().toUpperCase().replace(/\s+/g, '');
+        let identU = '', papelFace = '';
+        if (papelU === 'cidadao' && biU) { identU = biU; papelFace = 'user'; }
+        else if (papelU === 'instituicao' && agU) { identU = agU; papelFace = 'institution'; }
+        else if (papelU === 'admin' && agU) { identU = agU; papelFace = 'admin'; }
+        else if (biU) { identU = biU; papelFace = 'user'; }
+        else if (agU) { identU = agU; papelFace = 'institution'; }
+        if (!identU) return res.status(403).json({ ok: false, erro: 'Conta sem identidade reconhecida.' });
+        const filtroFace = `identidade=eq.${encodeURIComponent(identU)}&papel=eq.${encodeURIComponent(papelFace)}`;
+        const acaoFace = String((body || {}).acao || 'ler');
+        if (acaoFace === 'ler') {
+          const rL = await fetch(`${supaUrlFace}/rest/v1/face_templates?select=descritor,algoritmo,atualizado_em&${filtroFace}`, { headers: hFace });
+          if (!rL.ok) return res.status(500).json({ ok: false, erro: (await rL.text()).slice(0, 160) });
+          const linhasFace = await rL.json().catch(() => []);
+          if (!Array.isArray(linhasFace) || !linhasFace.length) return res.status(200).json({ ok: false, erro: 'sem-registo' });
+          const lF = linhasFace[0];
+          return res.status(200).json({ ok: true, descritor: (lF.descritor?.v || lF.descritor), algoritmo: lF.algoritmo, atualizadoEm: lF.atualizado_em });
+        }
+        if (acaoFace === 'gravar') {
+          const desc = (body || {}).descritor;
+          if (!Array.isArray(desc) || desc.length < 64 || desc.length > 4096) return res.status(400).json({ ok: false, erro: 'Descritor facial inválido.' });
+          if (!desc.every((v: any) => typeof v === 'number' && Number.isFinite(v))) return res.status(400).json({ ok: false, erro: 'Descritor com valores inválidos.' });
+          const rG = await fetch(`${supaUrlFace}/rest/v1/face_templates?on_conflict=identidade,papel`, {
+            method: 'POST',
+            headers: { ...hFace, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' },
+            body: JSON.stringify([{ identidade: identU, papel: papelFace, algoritmo: String((body || {}).algoritmo || 'v1').slice(0, 12), descritor: { v: desc }, consentimento_em: new Date().toISOString(), atualizado_em: new Date().toISOString() }]),
+          });
+          if (!rG.ok) return res.status(500).json({ ok: false, erro: (await rG.text()).slice(0, 160) });
+          return res.status(200).json({ ok: true, algoritmo: String((body || {}).algoritmo || 'v1') });
+        }
+        if (acaoFace === 'apagar') {
+          const rD = await fetch(`${supaUrlFace}/rest/v1/face_templates?${filtroFace}`, { method: 'DELETE', headers: hFace });
+          if (!rD.ok) return res.status(500).json({ ok: false, erro: (await rD.text()).slice(0, 160) });
+          return res.status(200).json({ ok: true });
+        }
+        return res.status(400).json({ ok: false, erro: 'Acção desconhecida.' });
+      } catch (e: any) {
+        console.error('[FACE-TEMPLATE] Exceção:', e);
+        return res.status(500).json({ ok: false, erro: String(e?.message || e).slice(0, 160) });
+      }
     }
 
     // REPOSIÇÃO ASSISTIDA DE PALAVRA-PASSE (2026-11-15) — a via que a app
